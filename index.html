@@ -1,527 +1,766 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Textify">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a0a0a' width='100' height='100' rx='20'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='%23e8ff47'>T</text></svg>">
-    <title>Textify</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #0a0a0a;
-            --surface: #141414;
-            --surface-hover: #1a1a1a;
-            --border: #2a2a2a;
-            --text: #fafafa;
-            --text-muted: #888;
-            --text-dim: #555;
-            --accent: #e8ff47;
-            --accent-dim: #b8cc39;
-            --accent-bg: rgba(232, 255, 71, 0.1);
-            --success: #4ade80;
-            --error: #f87171;
-            --warning: #fbbf24;
-            --serif: 'Instrument Serif', Georgia, serif;
-            --sans: 'DM Sans', system-ui, sans-serif;
-            --radius: 12px;
-            --radius-sm: 8px;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; min-height: -webkit-fill-available; line-height: 1.6; overflow-x: hidden; }
-        .app { display: flex; flex-direction: column; min-height: 100vh; min-height: -webkit-fill-available; }
-        .header { padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 100; }
-        .logo { font-family: var(--serif); font-size: 1.75rem; font-style: italic; letter-spacing: -0.02em; }
-        .logo span { color: var(--accent); }
-        .header-actions { display: flex; align-items: center; gap: 12px; }
-        .sync-status { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); }
-        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
-        .sync-dot.syncing { background: var(--warning); animation: pulse 1s infinite; }
-        .sync-dot.synced { background: var(--success); }
-        .sync-dot.error { background: var(--error); }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .icon-btn { width: 40px; height: 40px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
-        .icon-btn:hover { background: var(--surface-hover); border-color: #444; }
-        .icon-btn.spinning svg { animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .icon-btn svg { width: 20px; height: 20px; }
-        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .auth-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; text-align: center; }
-        .auth-screen.hidden { display: none; }
-        .auth-icon { width: 80px; height: 80px; margin-bottom: 24px; color: var(--accent); }
-        .auth-title { font-family: var(--serif); font-size: 1.75rem; font-style: italic; margin-bottom: 12px; }
-        .auth-desc { color: var(--text-muted); font-size: 0.95rem; max-width: 320px; margin-bottom: 32px; }
-        .auth-btn { display: flex; align-items: center; gap: 12px; padding: 16px 32px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius); font-family: var(--sans); font-size: 1rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-        .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-        .auth-btn svg { width: 24px; height: 24px; }
-        .content { flex: 1; display: none; flex-direction: column; overflow: hidden; }
-        .content.visible { display: flex; }
-        .playlist-container { flex: 1; overflow-y: auto; padding: 20px 24px; padding-bottom: 220px; }
-        .playlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-        .playlist-title { font-family: var(--serif); font-size: 1.25rem; font-style: italic; }
-        .playlist-count { font-size: 0.85rem; color: var(--text-muted); }
-        .playlist-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
-        .playlist { display: flex; flex-direction: column; gap: 8px; }
-        .track { display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all 0.2s; }
-        .track:hover { background: var(--surface-hover); border-color: #444; }
-        .track.active { background: var(--accent-bg); border-color: var(--accent); }
-        .track.generating { opacity: 0.7; }
-        .track-number { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: var(--text-muted); flex-shrink: 0; }
-        .track.active .track-number { color: var(--accent); }
-        .track-equalizer { display: none; gap: 2px; align-items: flex-end; height: 16px; }
-        .track.active.playing .track-number span { display: none; }
-        .track.active.playing .track-equalizer { display: flex; }
-        .eq-bar { width: 3px; background: var(--accent); border-radius: 1px; animation: eq 0.8s ease-in-out infinite; }
-        .eq-bar:nth-child(1) { height: 60%; animation-delay: 0s; }
-        .eq-bar:nth-child(2) { height: 100%; animation-delay: 0.2s; }
-        .eq-bar:nth-child(3) { height: 40%; animation-delay: 0.4s; }
-        @keyframes eq { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.5); } }
-        .track-info { flex: 1; min-width: 0; }
-        .track-title { font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-        .track-meta { display: flex; align-items: center; gap: 12px; font-size: 0.8rem; color: var(--text-muted); }
-        .track-folder { display: flex; align-items: center; gap: 4px; }
-        .track-folder svg { width: 14px; height: 14px; }
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
-        .status-badge.cached { background: rgba(74, 222, 128, 0.15); color: var(--success); }
-        .status-badge.generating { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
-        .status-badge.new { background: rgba(232, 255, 71, 0.15); color: var(--accent); }
-        .status-badge.pending { background: rgba(136, 136, 136, 0.15); color: var(--text-muted); }
-        .player { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, var(--bg) 80%, transparent); padding: 20px 24px 32px; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
-        .player.hidden { display: none; }
-        .player-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: 0 -8px 32px rgba(0,0,0,0.4); }
-        .player-track-info { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-        .player-track-title { flex: 1; font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .player-track-position { font-size: 0.8rem; color: var(--text-muted); }
-        .player-progress { margin-bottom: 16px; }
-        .progress-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; cursor: pointer; }
-        .progress-fill { height: 100%; background: var(--accent); border-radius: 3px; width: 0%; transition: width 0.1s linear; }
-        .progress-times { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-        .player-controls { display: flex; align-items: center; justify-content: center; gap: 12px; }
-        .control-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: transparent; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
-        .control-btn:hover { background: var(--surface-hover); }
-        .control-btn svg { width: 24px; height: 24px; }
-        .control-btn.play-pause { width: 64px; height: 64px; background: var(--accent); color: var(--bg); }
-        .control-btn.play-pause:hover { background: var(--accent-dim); transform: scale(1.05); }
-        .control-btn.play-pause svg { width: 28px; height: 28px; }
-        .speed-btn { min-width: 48px; padding: 8px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: var(--sans); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-        .speed-btn:hover { background: var(--surface-hover); border-color: #444; }
-        .toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px); padding: 14px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.9rem; opacity: 0; transition: all 0.3s ease-out; z-index: 300; max-width: 90%; text-align: center; }
-        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-        .toast.error { border-color: var(--error); }
-        .toast.success { border-color: var(--success); }
-        @media (max-width: 600px) { .header { padding: 16px 20px; } .playlist-container { padding: 16px 20px; padding-bottom: 240px; } .player { padding: 16px 20px 24px; } .player-controls { gap: 8px; } .control-btn { width: 44px; height: 44px; } .control-btn.play-pause { width: 56px; height: 56px; } }
-    </style>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2575.6">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
 </head>
 <body>
-    <div class="app">
-        <header class="header">
-            <h1 class="logo">Textify<span>.</span></h1>
-            <div class="header-actions">
-                <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-text">Offline</span></div>
-                <button class="icon-btn" id="refresh-btn" title="Sync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></button>
-            </div>
-        </header>
-        <main class="main">
-            <div class="auth-screen" id="auth-screen">
-                <svg class="auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
-                <h2 class="auth-title">Connect Google Drive</h2>
-                <p class="auth-desc">Sign in to sync your documents and listen to them as audio.</p>
-                <button class="auth-btn" id="auth-btn">
-                    <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                    Sign in with Google
-                </button>
-            </div>
-            <div class="content" id="content">
-                <div class="playlist-container">
-                    <div class="playlist-header"><h2 class="playlist-title">Your Documents</h2><span class="playlist-count" id="playlist-count">0 documents</span></div>
-                    <div class="playlist-empty" id="playlist-empty"><p>No documents found. Click sync to check your folders.</p></div>
-                    <div class="playlist" id="playlist"></div>
-                </div>
-            </div>
-        </main>
-        <div class="player hidden" id="player">
-            <div class="player-card">
-                <div class="player-track-info"><span class="player-track-title" id="player-title">No track selected</span><span class="player-track-position" id="player-position">0 / 0</span></div>
-                <div class="player-progress"><div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div><div class="progress-times"><span id="current-time">0:00</span><span id="total-time">0:00</span></div></div>
-                <div class="player-controls">
-                    <button class="control-btn" id="prev-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-                    <button class="control-btn" id="rewind-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></button>
-                    <button class="control-btn play-pause" id="play-pause-btn"><svg viewBox="0 0 24 24" fill="currentColor" id="play-icon"><path d="M8 5v14l11-7z"/></svg><svg viewBox="0 0 24 24" fill="currentColor" id="pause-icon" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></button>
-                    <button class="control-btn" id="forward-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg></button>
-                    <button class="control-btn" id="next-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-                    <button class="speed-btn" id="speed-btn">1x</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="toast" id="toast"></div>
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client"></script>
-    <script>
-        const GOOGLE_CLIENT_ID = '959875839996-h7cogpr60gugmqco9f9i5ehkjr0hq569.apps.googleusercontent.com';
-        const GOOGLE_API_KEY = 'AIzaSyCQ1_Y6-w_lOzjRUMN2lxRFuZfT4y-9ICg';
-        const ALLOWED_USER = 'briandigate';
-        const FOLDER_IDS = ['1YEj74qrmNYMZcQ90l_6wlq6c6DDk4YbR','1kc57wQ2rCLI4yKOK7h2pbhS1XMUFGs9y','1kedNH3hNJUh6frA1iN2xoXc5g--FNvZs'];
-        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
-        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-
-        let tokenClient, gapiInited = false, gisInited = false, accessToken = null;
-        let playlist = [], currentTrackIndex = -1, isPlaying = false, isSpeaking = false;
-        let playbackSpeed = 1;
-        const speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
-        let lastSyncTime = null, db;
-        const DB_NAME = 'TextifyCache', STORE_NAME = 'documents';
-
-        const authScreen = document.getElementById('auth-screen');
-        const authBtn = document.getElementById('auth-btn');
-        const content = document.getElementById('content');
-        const syncDot = document.getElementById('sync-dot');
-        const syncText = document.getElementById('sync-text');
-        const refreshBtn = document.getElementById('refresh-btn');
-        const playlistEl = document.getElementById('playlist');
-        const playlistEmpty = document.getElementById('playlist-empty');
-        const playlistCount = document.getElementById('playlist-count');
-        const player = document.getElementById('player');
-        const playerTitle = document.getElementById('player-title');
-        const playerPosition = document.getElementById('player-position');
-        const progressBar = document.getElementById('progress-bar');
-        const progressFill = document.getElementById('progress-fill');
-        const currentTimeEl = document.getElementById('current-time');
-        const totalTimeEl = document.getElementById('total-time');
-        const playPauseBtn = document.getElementById('play-pause-btn');
-        const playIcon = document.getElementById('play-icon');
-        const pauseIcon = document.getElementById('pause-icon');
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        const rewindBtn = document.getElementById('rewind-btn');
-        const forwardBtn = document.getElementById('forward-btn');
-        const speedBtn = document.getElementById('speed-btn');
-        const toast = document.getElementById('toast');
-
-        let currentUtterance = null, utteranceProgress = 0;
-
-        async function init() {
-            await initDB();
-            await loadCachedPlaylist();
-            loadLastSyncTime();
-            initGoogleAPI();
-            setupEventListeners();
-            setupMediaSession();
-        }
-
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, 2);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => { db = request.result; resolve(); };
-                request.onupgradeneeded = (e) => {
-                    const database = e.target.result;
-                    if (!database.objectStoreNames.contains(STORE_NAME)) database.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                };
-            });
-        }
-
-        async function cacheDocument(id, text, metadata) {
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                tx.objectStore(STORE_NAME).put({ id, text, metadata, cachedAt: Date.now() });
-                tx.oncomplete = resolve;
-                tx.onerror = () => reject(tx.error);
-            });
-        }
-
-        async function getCachedDocument(id) {
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readonly');
-                const request = tx.objectStore(STORE_NAME).get(id);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-        }
-
-        async function getAllCached() {
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readonly');
-                const request = tx.objectStore(STORE_NAME).getAll();
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-        }
-
-        function loadLastSyncTime() {
-            const saved = localStorage.getItem('textify_last_sync');
-            if (saved) lastSyncTime = new Date(saved);
-        }
-
-        function saveLastSyncTime() {
-            lastSyncTime = new Date();
-            localStorage.setItem('textify_last_sync', lastSyncTime.toISOString());
-        }
-
-        function initGoogleAPI() {
-            gapi.load('client', async () => {
-                try {
-                    await gapi.client.init({ apiKey: GOOGLE_API_KEY, discoveryDocs: [DISCOVERY_DOC] });
-                    gapiInited = true;
-                    maybeEnableAuth();
-                } catch (e) { console.error('GAPI init error:', e); showToast('Failed to load Google API', 'error'); }
-            });
-            tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: SCOPES, callback: handleAuthCallback });
-            gisInited = true;
-            maybeEnableAuth();
-        }
-
-        function maybeEnableAuth() {
-            if (gapiInited && gisInited) {
-                const storedToken = localStorage.getItem('textify_access_token');
-                if (storedToken) {
-                    accessToken = storedToken;
-                    gapi.client.setToken({ access_token: storedToken });
-                    verifyAndShowAuth();
-                }
-            }
-        }
-
-        async function verifyAndShowAuth() {
-            try {
-                const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': `Bearer ${accessToken}` } });
-                if (!userInfo.ok) { localStorage.removeItem('textify_access_token'); accessToken = null; return; }
-                const user = await userInfo.json();
-                const username = user.email.split('@')[0];
-                if (username.toLowerCase() !== ALLOWED_USER.toLowerCase()) { showToast('Access denied', 'error'); signOut(); return; }
-                showAuthenticatedState();
-                syncWithDrive();
-            } catch (e) { console.error('Auth verification failed:', e); localStorage.removeItem('textify_access_token'); accessToken = null; }
-        }
-
-        async function handleAuthCallback(resp) {
-            if (resp.error) { console.error('Auth error:', resp); showToast('Authentication failed', 'error'); return; }
-            try {
-                const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': `Bearer ${resp.access_token}` } });
-                const user = await userInfo.json();
-                const username = user.email.split('@')[0];
-                if (username.toLowerCase() !== ALLOWED_USER.toLowerCase()) { showToast('Access denied. This app is private.', 'error'); google.accounts.oauth2.revoke(resp.access_token); return; }
-                accessToken = resp.access_token;
-                localStorage.setItem('textify_access_token', accessToken);
-                showAuthenticatedState();
-                syncWithDrive();
-            } catch (e) { console.error('User verification failed:', e); showToast('Could not verify user', 'error'); }
-        }
-
-        function signIn() {
-            if (!gisInited || !gapiInited) { showToast('Google API not loaded yet', 'error'); return; }
-            tokenClient.requestAccessToken({ prompt: 'consent' });
-        }
-
-        function signOut() {
-            if (accessToken) google.accounts.oauth2.revoke(accessToken);
-            accessToken = null;
-            localStorage.removeItem('textify_access_token');
-            authScreen.classList.remove('hidden');
-            content.classList.remove('visible');
-            player.classList.add('hidden');
-            updateSyncStatus('offline');
-        }
-
-        function showAuthenticatedState() {
-            authScreen.classList.add('hidden');
-            content.classList.add('visible');
-            if (playlist.length > 0) player.classList.remove('hidden');
-        }
-
-        async function syncWithDrive() {
-            if (!accessToken) { updateSyncStatus('error', 'Not signed in'); return; }
-            updateSyncStatus('syncing');
-            refreshBtn.classList.add('spinning');
-            try {
-                const files = [];
-                for (const folderId of FOLDER_IDS) {
-                    try {
-                        const folderInfo = await gapi.client.drive.files.get({ fileId: folderId, fields: 'name' });
-                        const folderName = folderInfo.result.name;
-                        const response = await gapi.client.drive.files.list({
-                            q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
-                            fields: 'files(id, name, modifiedTime)',
-                            orderBy: 'modifiedTime desc',
-                            pageSize: 100
-                        });
-                        for (const file of response.result.files || []) {
-                            files.push({ id: file.id, name: file.name, folder: folderName, modifiedTime: file.modifiedTime });
-                        }
-                    } catch (e) { console.error(`Error fetching folder ${folderId}:`, e); }
-                }
-                const cachedDocs = await getAllCached();
-                const cachedIds = new Map(cachedDocs.map(c => [c.id, c]));
-                playlist = files.map(file => {
-                    const cached = cachedIds.get(file.id);
-                    const isNew = lastSyncTime && new Date(file.modifiedTime) > lastSyncTime;
-                    const isCached = cached && cached.text;
-                    return { ...file, status: isCached ? 'cached' : (isNew ? 'new' : 'pending'), text: cached?.text || null };
-                });
-                savePlaylistToStorage();
-                renderPlaylist();
-                const newCount = playlist.filter(t => t.status === 'new').length;
-                updateSyncStatus('synced', `${playlist.length} docs${newCount > 0 ? `, ${newCount} new` : ''}`);
-                saveLastSyncTime();
-                await downloadNewDocuments();
-            } catch (error) { console.error('Sync error:', error); updateSyncStatus('error', 'Sync failed'); showToast('Failed to sync with Drive', 'error'); }
-            finally { refreshBtn.classList.remove('spinning'); }
-        }
-
-        async function downloadNewDocuments() {
-            const pending = playlist.filter(t => t.status === 'new' || t.status === 'pending');
-            for (const track of pending) await downloadDocument(track);
-        }
-
-        async function downloadDocument(track) {
-            const index = playlist.findIndex(t => t.id === track.id);
-            if (index === -1) return;
-            playlist[index].status = 'generating';
-            renderPlaylist();
-            try {
-                const response = await gapi.client.drive.files.export({ fileId: track.id, mimeType: 'text/plain' });
-                const text = response.body;
-                if (!text || text.trim().length === 0) throw new Error('Empty document');
-                await cacheDocument(track.id, text, { name: track.name, folder: track.folder });
-                playlist[index].status = 'cached';
-                playlist[index].text = text;
-                savePlaylistToStorage();
-                renderPlaylist();
-            } catch (error) { console.error('Download error:', error); playlist[index].status = 'pending'; renderPlaylist(); }
-        }
-
-        function savePlaylistToStorage() {
-            const toSave = playlist.map(({ text, ...rest }) => rest);
-            localStorage.setItem('textify_playlist', JSON.stringify(toSave));
-        }
-
-        async function loadCachedPlaylist() {
-            const saved = localStorage.getItem('textify_playlist');
-            if (saved) {
-                playlist = JSON.parse(saved);
-                const cached = await getAllCached();
-                const cachedMap = new Map(cached.map(c => [c.id, c]));
-                playlist.forEach(track => { const doc = cachedMap.get(track.id); if (doc) { track.text = doc.text; track.status = 'cached'; } });
-                renderPlaylist();
-            }
-        }
-
-        function renderPlaylist() {
-            if (playlist.length === 0) { playlistEmpty.style.display = 'block'; playlistEl.innerHTML = ''; playlistCount.textContent = '0 documents'; return; }
-            playlistEmpty.style.display = 'none';
-            playlistCount.textContent = `${playlist.length} document${playlist.length !== 1 ? 's' : ''}`;
-            playlistEl.innerHTML = playlist.map((track, index) => `
-                <div class="track ${index === currentTrackIndex ? 'active' : ''} ${isPlaying && index === currentTrackIndex ? 'playing' : ''} ${track.status === 'generating' ? 'generating' : ''}" data-index="${index}">
-                    <div class="track-number"><span>${index + 1}</span><div class="track-equalizer"><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div></div></div>
-                    <div class="track-info">
-                        <div class="track-title">${escapeHtml(track.name)}</div>
-                        <div class="track-meta"><span class="track-folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>${escapeHtml(track.folder)}</span><span class="status-badge ${track.status}">${track.status}</span></div>
-                    </div>
-                </div>
-            `).join('');
-            document.querySelectorAll('.track').forEach(el => { el.addEventListener('click', () => playTrack(parseInt(el.dataset.index))); });
-            if (playlist.length > 0) player.classList.remove('hidden');
-        }
-
-        async function playTrack(index) {
-            if (index < 0 || index >= playlist.length) return;
-            const track = playlist[index];
-            if (!track.text) {
-                showToast('Downloading document...', 'info');
-                await downloadDocument(track);
-                if (!playlist[index].text) { showToast('Could not load document', 'error'); return; }
-            }
-            stopSpeech();
-            currentTrackIndex = index;
-            const text = playlist[index].text;
-            currentUtterance = new SpeechSynthesisUtterance(text);
-            currentUtterance.rate = playbackSpeed;
-            const voices = speechSynthesis.getVoices();
-            const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Google') || v.name.includes('Natural'))) || voices.find(v => v.lang.startsWith('en'));
-            if (preferredVoice) currentUtterance.voice = preferredVoice;
-            utteranceProgress = 0;
-            currentUtterance.onstart = () => { isPlaying = true; isSpeaking = true; updatePlayButton(); renderPlaylist(); updateMediaSession(); startProgressTimer(); };
-            currentUtterance.onend = () => { isSpeaking = false; stopProgressTimer(); if (currentTrackIndex < playlist.length - 1) { playTrack(currentTrackIndex + 1); } else { isPlaying = false; updatePlayButton(); renderPlaylist(); } };
-            currentUtterance.onerror = (e) => { console.error('Speech error:', e); isPlaying = false; isSpeaking = false; updatePlayButton(); renderPlaylist(); stopProgressTimer(); };
-            currentUtterance.onboundary = (e) => { if (e.name === 'word') { utteranceProgress = e.charIndex / text.length; updateProgressDisplay(); } };
-            playerTitle.textContent = track.name;
-            playerPosition.textContent = `${index + 1} / ${playlist.length}`;
-            const wordCount = text.split(/\s+/).length;
-            const estimatedSeconds = (wordCount / 150) * 60 / playbackSpeed;
-            totalTimeEl.textContent = formatTime(estimatedSeconds);
-            speechSynthesis.speak(currentUtterance);
-        }
-
-        let progressTimer = null;
-        function startProgressTimer() { stopProgressTimer(); progressTimer = setInterval(updateProgressDisplay, 100); }
-        function stopProgressTimer() { if (progressTimer) { clearInterval(progressTimer); progressTimer = null; } }
-
-        function updateProgressDisplay() {
-            progressFill.style.width = `${utteranceProgress * 100}%`;
-            if (currentTrackIndex >= 0 && playlist[currentTrackIndex]?.text) {
-                const text = playlist[currentTrackIndex].text;
-                const wordCount = text.split(/\s+/).length;
-                const totalSeconds = (wordCount / 150) * 60 / playbackSpeed;
-                const currentSeconds = utteranceProgress * totalSeconds;
-                currentTimeEl.textContent = formatTime(currentSeconds);
-            }
-        }
-
-        function stopSpeech() { speechSynthesis.cancel(); isSpeaking = false; isPlaying = false; stopProgressTimer(); }
-
-        function togglePlayPause() {
-            if (!isSpeaking && currentTrackIndex === -1) { if (playlist.length > 0) playTrack(0); return; }
-            if (isSpeaking) { if (speechSynthesis.paused) { speechSynthesis.resume(); isPlaying = true; } else { speechSynthesis.pause(); isPlaying = false; } }
-            else { playTrack(currentTrackIndex >= 0 ? currentTrackIndex : 0); }
-            updatePlayButton(); renderPlaylist();
-        }
-
-        function updatePlayButton() { playIcon.style.display = isPlaying ? 'none' : 'block'; pauseIcon.style.display = isPlaying ? 'block' : 'none'; }
-        function prevTrack() { if (currentTrackIndex > 0) playTrack(currentTrackIndex - 1); }
-        function nextTrack() { if (currentTrackIndex < playlist.length - 1) playTrack(currentTrackIndex + 1); }
-        function rewind() { if (currentTrackIndex >= 0) playTrack(currentTrackIndex); }
-        function forward() { nextTrack(); }
-        function cycleSpeed() { const currentIndex = speeds.indexOf(playbackSpeed); playbackSpeed = speeds[(currentIndex + 1) % speeds.length]; speedBtn.textContent = `${playbackSpeed}x`; if (isSpeaking && currentTrackIndex >= 0) playTrack(currentTrackIndex); }
-
-        function setupMediaSession() {
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.setActionHandler('play', togglePlayPause);
-                navigator.mediaSession.setActionHandler('pause', togglePlayPause);
-                navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
-                navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
-            }
-        }
-
-        function updateMediaSession() {
-            if ('mediaSession' in navigator && currentTrackIndex >= 0) {
-                const track = playlist[currentTrackIndex];
-                navigator.mediaSession.metadata = new MediaMetadata({ title: track.name, artist: 'Textify', album: track.folder });
-            }
-        }
-
-        function formatTime(seconds) { if (!seconds || isNaN(seconds)) return '0:00'; const mins = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60); return `${mins}:${secs.toString().padStart(2, '0')}`; }
-        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
-        function updateSyncStatus(status, text = '') { syncDot.className = 'sync-dot ' + status; syncText.textContent = status === 'syncing' ? 'Syncing...' : (status === 'synced' ? (text || 'Synced') : (status === 'error' ? (text || 'Error') : 'Offline')); }
-        function showToast(message, type = 'info') { toast.textContent = message; toast.className = `toast ${type} show`; setTimeout(() => toast.classList.remove('show'), 3000); }
-
-        function setupEventListeners() {
-            authBtn.addEventListener('click', signIn);
-            refreshBtn.addEventListener('click', syncWithDrive);
-            playPauseBtn.addEventListener('click', togglePlayPause);
-            prevBtn.addEventListener('click', prevTrack);
-            nextBtn.addEventListener('click', nextTrack);
-            rewindBtn.addEventListener('click', rewind);
-            forwardBtn.addEventListener('click', forward);
-            speedBtn.addEventListener('click', cycleSpeed);
-            progressBar.addEventListener('click', () => showToast('Seeking not available with browser voices', 'info'));
-            speechSynthesis.onvoiceschanged = () => console.log('Voices loaded:', speechSynthesis.getVoices().length);
-        }
-
-        init();
-    </script>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="en"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;meta charset="UTF-8"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;meta name="apple-mobile-web-app-capable" content="yes"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;meta name="apple-mobile-web-app-title" content="Textify"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;link rel="apple-touch-icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;rect fill='%230a0a0a' width='100' height='100' rx='20'/&gt;&lt;text x='50' y='68' font-size='50' text-anchor='middle' fill='%23e8ff47'&gt;T&lt;/text&gt;&lt;/svg&gt;"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;title&gt;Textify&lt;/title&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&amp;display=swap" rel="stylesheet"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>:root {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--bg: #0a0a0a;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--surface: #141414;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--surface-hover: #1a1a1a;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--border: #2a2a2a;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--text: #fafafa;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--text-muted: #888;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--text-dim: #555;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--accent: #e8ff47;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--accent-dim: #b8cc39;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--accent-bg: rgba(232, 255, 71, 0.1);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--success: #4ade80;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--error: #f87171;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--warning: #fbbf24;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--serif: 'Instrument Serif', Georgia, serif;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--sans: 'DM Sans', system-ui, sans-serif;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--radius: 12px;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>--radius-sm: 8px;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>html, body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; min-height: -webkit-fill-available; line-height: 1.6; overflow-x: hidden; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.app { display: flex; flex-direction: column; min-height: 100vh; min-height: -webkit-fill-available; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.header { padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 100; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.logo { font-family: var(--serif); font-size: 1.75rem; font-style: italic; letter-spacing: -0.02em; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.logo span { color: var(--accent); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.header-actions { display: flex; align-items: center; gap: 12px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.sync-status { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.sync-dot.syncing { background: var(--warning); animation: pulse 1s infinite; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.sync-dot.synced { background: var(--success); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.sync-dot.error { background: var(--error); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.icon-btn { width: 40px; height: 40px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.icon-btn:hover { background: var(--surface-hover); border-color: #444; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.icon-btn.spinning svg { animation: spin 1s linear infinite; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes spin { to { transform: rotate(360deg); } }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.icon-btn svg { width: 20px; height: 20px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.auth-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; text-align: center; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.auth-screen.hidden { display: none; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.auth-icon { width: 80px; height: 80px; margin-bottom: 24px; color: var(--accent); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.auth-title { font-family: var(--serif); font-size: 1.75rem; font-style: italic; margin-bottom: 12px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.auth-desc { color: var(--text-muted); font-size: 0.95rem; max-width: 320px; margin-bottom: 32px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.auth-btn { display: flex; align-items: center; gap: 12px; padding: 16px 32px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius); font-family: var(--sans); font-size: 1rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.auth-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.auth-btn svg { width: 24px; height: 24px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.content { flex: 1; display: none; flex-direction: column; overflow: hidden; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.content.visible { display: flex; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.playlist-container { flex: 1; overflow-y: auto; padding: 20px 24px; padding-bottom: 220px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.playlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.playlist-title { font-family: var(--serif); font-size: 1.25rem; font-style: italic; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.playlist-count { font-size: 0.85rem; color: var(--text-muted); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.playlist-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.playlist { display: flex; flex-direction: column; gap: 8px; }</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>/* Track with swipe to delete */</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-wrapper { position: relative; overflow: hidden; border-radius: var(--radius); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-delete-bg { position: absolute; top: 0; right: 0; bottom: 0; width: 100%; background: var(--error); display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; color: white; font-weight: 500; font-size: 0.9rem; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-delete-bg svg { width: 24px; height: 24px; margin-right: 8px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track { display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: transform 0.2s, background 0.2s, border-color 0.2s; position: relative; z-index: 1; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track:hover { background: var(--surface-hover); border-color: #444; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track.active { background: var(--accent-bg); border-color: var(--accent); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track.generating { opacity: 0.7; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track.swiping { transition: none; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-number { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: var(--text-muted); flex-shrink: 0; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track.active .track-number { color: var(--accent); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-equalizer { display: none; gap: 2px; align-items: flex-end; height: 16px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track.active.playing .track-number span { display: none; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track.active.playing .track-equalizer { display: flex; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.eq-bar { width: 3px; background: var(--accent); border-radius: 1px; animation: eq 0.8s ease-in-out infinite; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.eq-bar:nth-child(1) { height: 60%; animation-delay: 0s; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.eq-bar:nth-child(2) { height: 100%; animation-delay: 0.2s; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.eq-bar:nth-child(3) { height: 40%; animation-delay: 0.4s; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes eq { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.5); } }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-info { flex: 1; min-width: 0; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-title { font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-meta { display: flex; align-items: center; gap: 12px; font-size: 0.8rem; color: var(--text-muted); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-folder { display: flex; align-items: center; gap: 4px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-folder svg { width: 14px; height: 14px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.status-badge.cached { background: rgba(74, 222, 128, 0.15); color: var(--success); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.status-badge.generating { background: rgba(251, 191, 36, 0.15); color: var(--warning); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.status-badge.new { background: rgba(232, 255, 71, 0.15); color: var(--accent); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.status-badge.pending { background: rgba(136, 136, 136, 0.15); color: var(--text-muted); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-delete-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: rgba(248, 113, 113, 0.15); color: var(--error); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track:hover .track-delete-btn { opacity: 1; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.track-delete-btn svg { width: 18px; height: 18px; }</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>.player { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, var(--bg) 80%, transparent); padding: 20px 24px 32px; padding-bottom: max(32px, env(safe-area-inset-bottom)); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.player.hidden { display: none; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.player-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: 0 -8px 32px rgba(0,0,0,0.4); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.player-track-info { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.player-track-title { flex: 1; font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.player-track-position { font-size: 0.8rem; color: var(--text-muted); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.player-progress { margin-bottom: 16px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.progress-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; cursor: pointer; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.progress-fill { height: 100%; background: var(--accent); border-radius: 3px; width: 0%; transition: width 0.1s linear; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.progress-times { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.player-controls { display: flex; align-items: center; justify-content: center; gap: 12px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.control-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: transparent; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.control-btn:hover { background: var(--surface-hover); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.control-btn svg { width: 24px; height: 24px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.control-btn.play-pause { width: 64px; height: 64px; background: var(--accent); color: var(--bg); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.control-btn.play-pause:hover { background: var(--accent-dim); transform: scale(1.05); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.control-btn.play-pause svg { width: 28px; height: 28px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.speed-btn { min-width: 48px; padding: 8px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: var(--sans); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.speed-btn:hover { background: var(--surface-hover); border-color: #444; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px); padding: 14px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.9rem; opacity: 0; transition: all 0.3s ease-out; z-index: 300; max-width: 90%; text-align: center; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.toast.error { border-color: var(--error); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.toast.success { border-color: var(--success); }</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>/* Hidden audio element for iOS media controls */</p>
+<p class="p1"><span class="Apple-converted-space">        </span>#silent-audio { display: none; }</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>@media (max-width: 600px) {<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>.header { padding: 16px 20px; }<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>.playlist-container { padding: 16px 20px; padding-bottom: 240px; }<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>.player { padding: 16px 20px 24px; }<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>.player-controls { gap: 8px; }<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>.control-btn { width: 44px; height: 44px; }<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>.control-btn.play-pause { width: 56px; height: 56px; }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>.track-delete-btn { opacity: 1; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="app"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;header class="header"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;h1 class="logo"&gt;Textify&lt;span&gt;.&lt;/span&gt;&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="header-actions"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div class="sync-status"&gt;&lt;div class="sync-dot" id="sync-dot"&gt;&lt;/div&gt;&lt;span id="sync-text"&gt;Offline&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;button class="icon-btn" id="refresh-btn" title="Sync"&gt;&lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M23 4v6h-6M1 20v-6h6"/&gt;&lt;path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/&gt;&lt;/svg&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/header&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;main class="main"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="auth-screen" id="auth-screen"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;svg class="auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/&gt;&lt;path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/&gt;&lt;/svg&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;h2 class="auth-title"&gt;Connect Google Drive&lt;/h2&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;p class="auth-desc"&gt;Sign in to sync your documents and listen to them as audio.&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;button class="auth-btn" id="auth-btn"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;svg viewBox="0 0 24 24"&gt;&lt;path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/&gt;&lt;path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/&gt;&lt;path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/&gt;&lt;path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/&gt;&lt;/svg&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>Sign in with Google</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="content" id="content"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div class="playlist-container"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div class="playlist-header"&gt;&lt;h2 class="playlist-title"&gt;Your Documents&lt;/h2&gt;&lt;span class="playlist-count" id="playlist-count"&gt;0 documents&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div class="playlist-empty" id="playlist-empty"&gt;&lt;p&gt;No documents found. Click sync to check your folders.&lt;/p&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div class="playlist" id="playlist"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/main&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="player hidden" id="player"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="player-card"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div class="player-track-info"&gt;&lt;span class="player-track-title" id="player-title"&gt;No track selected&lt;/span&gt;&lt;span class="player-track-position" id="player-position"&gt;0 / 0&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div class="player-progress"&gt;&lt;div class="progress-bar" id="progress-bar"&gt;&lt;div class="progress-fill" id="progress-fill"&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="progress-times"&gt;&lt;span id="current-time"&gt;0:00&lt;/span&gt;&lt;span id="total-time"&gt;0:00&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div class="player-controls"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button class="control-btn" id="prev-btn"&gt;&lt;svg viewBox="0 0 24 24" fill="currentColor"&gt;&lt;path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/&gt;&lt;/svg&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button class="control-btn" id="rewind-btn"&gt;&lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M1 4v6h6"/&gt;&lt;path d="M3.51 15a9 9 0 102.13-9.36L1 10"/&gt;&lt;/svg&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button class="control-btn play-pause" id="play-pause-btn"&gt;&lt;svg viewBox="0 0 24 24" fill="currentColor" id="play-icon"&gt;&lt;path d="M8 5v14l11-7z"/&gt;&lt;/svg&gt;&lt;svg viewBox="0 0 24 24" fill="currentColor" id="pause-icon" style="display:none;"&gt;&lt;path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/&gt;&lt;/svg&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button class="control-btn" id="forward-btn"&gt;&lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M23 4v6h-6"/&gt;&lt;path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/&gt;&lt;/svg&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button class="control-btn" id="next-btn"&gt;&lt;svg viewBox="0 0 24 24" fill="currentColor"&gt;&lt;path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/&gt;&lt;/svg&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button class="speed-btn" id="speed-btn"&gt;1x&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="toast" id="toast"&gt;&lt;/div&gt;</p>
+<p class="p2"><span class="Apple-converted-space">    </span></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;!-- Silent audio for iOS lock screen controls --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;audio id="silent-audio" loop&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA" type="audio/wav"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/audio&gt;</p>
+<p class="p2"><span class="Apple-converted-space">    </span></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;script src="https://apis.google.com/js/api.js"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;script src="https://accounts.google.com/gsi/client"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const GOOGLE_CLIENT_ID = '959875839996-h7cogpr60gugmqco9f9i5ehkjr0hq569.apps.googleusercontent.com';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const GOOGLE_API_KEY = 'AIzaSyCQ1_Y6-w_lOzjRUMN2lxRFuZfT4y-9ICg';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const ALLOWED_USER = 'briandigate';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const FOLDER_IDS = ['1YEj74qrmNYMZcQ90l_6wlq6c6DDk4YbR','1kc57wQ2rCLI4yKOK7h2pbhS1XMUFGs9y','1kedNH3hNJUh6frA1iN2xoXc5g--FNvZs'];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>let tokenClient, gapiInited = false, gisInited = false, accessToken = null;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>let playlist = [], currentTrackIndex = -1, isPlaying = false, isSpeaking = false;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>let playbackSpeed = 1;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>let lastSyncTime = null, db;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const DB_NAME = 'TextifyCache', STORE_NAME = 'documents';</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>// For deleted items tracking</p>
+<p class="p1"><span class="Apple-converted-space">        </span>let deletedIds = new Set();</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>const authScreen = document.getElementById('auth-screen');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const authBtn = document.getElementById('auth-btn');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const content = document.getElementById('content');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const syncDot = document.getElementById('sync-dot');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const syncText = document.getElementById('sync-text');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const refreshBtn = document.getElementById('refresh-btn');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const playlistEl = document.getElementById('playlist');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const playlistEmpty = document.getElementById('playlist-empty');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const playlistCount = document.getElementById('playlist-count');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const player = document.getElementById('player');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const playerTitle = document.getElementById('player-title');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const playerPosition = document.getElementById('player-position');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const progressBar = document.getElementById('progress-bar');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const progressFill = document.getElementById('progress-fill');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const currentTimeEl = document.getElementById('current-time');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const totalTimeEl = document.getElementById('total-time');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const playPauseBtn = document.getElementById('play-pause-btn');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const playIcon = document.getElementById('play-icon');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const pauseIcon = document.getElementById('pause-icon');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const prevBtn = document.getElementById('prev-btn');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const nextBtn = document.getElementById('next-btn');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const rewindBtn = document.getElementById('rewind-btn');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const forwardBtn = document.getElementById('forward-btn');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const speedBtn = document.getElementById('speed-btn');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const toast = document.getElementById('toast');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const silentAudio = document.getElementById('silent-audio');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>let currentUtterance = null, utteranceProgress = 0;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function init() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>await initDB();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>loadDeletedIds();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>await loadCachedPlaylist();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>loadLastSyncTime();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>initGoogleAPI();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setupEventListeners();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setupMediaSession();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function initDB() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return new Promise((resolve, reject) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const request = indexedDB.open(DB_NAME, 2);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>request.onerror = () =&gt; reject(request.error);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>request.onsuccess = () =&gt; { db = request.result; resolve(); };</p>
+<p class="p1"><span class="Apple-converted-space">                </span>request.onupgradeneeded = (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const database = e.target.result;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>if (!database.objectStoreNames.contains(STORE_NAME)) database.createObjectStore(STORE_NAME, { keyPath: 'id' });</p>
+<p class="p1"><span class="Apple-converted-space">                </span>};</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function cacheDocument(id, text, metadata) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return new Promise((resolve, reject) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const tx = db.transaction(STORE_NAME, 'readwrite');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>tx.objectStore(STORE_NAME).put({ id, text, metadata, cachedAt: Date.now() });</p>
+<p class="p1"><span class="Apple-converted-space">                </span>tx.oncomplete = resolve;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>tx.onerror = () =&gt; reject(tx.error);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function getCachedDocument(id) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return new Promise((resolve, reject) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const tx = db.transaction(STORE_NAME, 'readonly');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const request = tx.objectStore(STORE_NAME).get(id);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>request.onsuccess = () =&gt; resolve(request.result);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>request.onerror = () =&gt; reject(request.error);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function getAllCached() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return new Promise((resolve, reject) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const tx = db.transaction(STORE_NAME, 'readonly');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const request = tx.objectStore(STORE_NAME).getAll();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>request.onsuccess = () =&gt; resolve(request.result);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>request.onerror = () =&gt; reject(request.error);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function deleteFromCache(id) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return new Promise((resolve, reject) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const tx = db.transaction(STORE_NAME, 'readwrite');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>tx.objectStore(STORE_NAME).delete(id);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>tx.oncomplete = resolve;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>tx.onerror = () =&gt; reject(tx.error);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function loadDeletedIds() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const saved = localStorage.getItem('textify_deleted');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (saved) deletedIds = new Set(JSON.parse(saved));</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function saveDeletedIds() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>localStorage.setItem('textify_deleted', JSON.stringify([...deletedIds]));</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function loadLastSyncTime() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const saved = localStorage.getItem('textify_last_sync');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (saved) lastSyncTime = new Date(saved);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function saveLastSyncTime() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>lastSyncTime = new Date();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>localStorage.setItem('textify_last_sync', lastSyncTime.toISOString());</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function initGoogleAPI() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>gapi.load('client', async () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>await gapi.client.init({ apiKey: GOOGLE_API_KEY, discoveryDocs: [DISCOVERY_DOC] });</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>gapiInited = true;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>maybeEnableAuth();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>} catch (e) { console.error('GAPI init error:', e); showToast('Failed to load Google API', 'error'); }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">            </span>tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: SCOPES, callback: handleAuthCallback });</p>
+<p class="p1"><span class="Apple-converted-space">            </span>gisInited = true;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>maybeEnableAuth();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function maybeEnableAuth() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (gapiInited &amp;&amp; gisInited) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const storedToken = localStorage.getItem('textify_access_token');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (storedToken) {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>accessToken = storedToken;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>gapi.client.setToken({ access_token: storedToken });</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>verifyAndShowAuth();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function verifyAndShowAuth() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': `Bearer ${accessToken}` } });</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (!userInfo.ok) { localStorage.removeItem('textify_access_token'); accessToken = null; return; }</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const user = await userInfo.json();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const username = user.email.split('@')[0];</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (username.toLowerCase() !== ALLOWED_USER.toLowerCase()) { showToast('Access denied', 'error'); signOut(); return; }</p>
+<p class="p1"><span class="Apple-converted-space">                </span>showAuthenticatedState();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>syncWithDrive();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} catch (e) { console.error('Auth verification failed:', e); localStorage.removeItem('textify_access_token'); accessToken = null; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function handleAuthCallback(resp) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (resp.error) { console.error('Auth error:', resp); showToast('Authentication failed', 'error'); return; }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': `Bearer ${resp.access_token}` } });</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const user = await userInfo.json();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const username = user.email.split('@')[0];</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (username.toLowerCase() !== ALLOWED_USER.toLowerCase()) { showToast('Access denied. This app is private.', 'error'); google.accounts.oauth2.revoke(resp.access_token); return; }</p>
+<p class="p1"><span class="Apple-converted-space">                </span>accessToken = resp.access_token;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>localStorage.setItem('textify_access_token', accessToken);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>showAuthenticatedState();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>syncWithDrive();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} catch (e) { console.error('User verification failed:', e); showToast('Could not verify user', 'error'); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function signIn() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (!gisInited || !gapiInited) { showToast('Google API not loaded yet', 'error'); return; }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>tokenClient.requestAccessToken({ prompt: 'consent' });</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function signOut() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (accessToken) google.accounts.oauth2.revoke(accessToken);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>accessToken = null;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>localStorage.removeItem('textify_access_token');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>authScreen.classList.remove('hidden');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>content.classList.remove('visible');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>player.classList.add('hidden');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>updateSyncStatus('offline');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function showAuthenticatedState() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>authScreen.classList.add('hidden');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>content.classList.add('visible');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (playlist.length &gt; 0) player.classList.remove('hidden');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function syncWithDrive() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (!accessToken) { updateSyncStatus('error', 'Not signed in'); return; }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>updateSyncStatus('syncing');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>refreshBtn.classList.add('spinning');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const files = [];</p>
+<p class="p1"><span class="Apple-converted-space">                </span>for (const folderId of FOLDER_IDS) {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>const folderInfo = await gapi.client.drive.files.get({ fileId: folderId, fields: 'name' });</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>const folderName = folderInfo.result.name;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>const response = await gapi.client.drive.files.list({</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>fields: 'files(id, name, modifiedTime)',</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>orderBy: 'modifiedTime desc',</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>pageSize: 100</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>for (const file of response.result.files || []) {</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>// Skip deleted items</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>if (deletedIds.has(file.id)) continue;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>files.push({ id: file.id, name: file.name, folder: folderName, modifiedTime: file.modifiedTime });</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>} catch (e) { console.error(`Error fetching folder ${folderId}:`, e); }</p>
+<p class="p1"><span class="Apple-converted-space">                </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const cachedDocs = await getAllCached();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const cachedIds = new Map(cachedDocs.map(c =&gt; [c.id, c]));</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playlist = files.map(file =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const cached = cachedIds.get(file.id);</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const isNew = lastSyncTime &amp;&amp; new Date(file.modifiedTime) &gt; lastSyncTime;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const isCached = cached &amp;&amp; cached.text;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>return { ...file, status: isCached ? 'cached' : (isNew ? 'new' : 'pending'), text: cached?.text || null };</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                </span>savePlaylistToStorage();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>renderPlaylist();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const newCount = playlist.filter(t =&gt; t.status === 'new').length;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>updateSyncStatus('synced', `${playlist.length} docs${newCount &gt; 0 ? `, ${newCount} new` : ''}`);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>saveLastSyncTime();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>await downloadNewDocuments();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} catch (error) { console.error('Sync error:', error); updateSyncStatus('error', 'Sync failed'); showToast('Failed to sync with Drive', 'error'); }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>finally { refreshBtn.classList.remove('spinning'); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function downloadNewDocuments() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const pending = playlist.filter(t =&gt; t.status === 'new' || t.status === 'pending');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>for (const track of pending) await downloadDocument(track);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function downloadDocument(track) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const index = playlist.findIndex(t =&gt; t.id === track.id);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (index === -1) return;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>playlist[index].status = 'generating';</p>
+<p class="p1"><span class="Apple-converted-space">            </span>renderPlaylist();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const response = await gapi.client.drive.files.export({ fileId: track.id, mimeType: 'text/plain' });</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const text = response.body;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (!text || text.trim().length === 0) throw new Error('Empty document');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>await cacheDocument(track.id, text, { name: track.name, folder: track.folder });</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playlist[index].status = 'cached';</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playlist[index].text = text;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>savePlaylistToStorage();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>renderPlaylist();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} catch (error) { console.error('Download error:', error); playlist[index].status = 'pending'; renderPlaylist(); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function deleteTrack(index, event) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (event) { event.stopPropagation(); event.preventDefault(); }</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>const track = playlist[index];</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (!track) return;</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// If currently playing this track, stop</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (currentTrackIndex === index) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>stopSpeech();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>currentTrackIndex = -1;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} else if (currentTrackIndex &gt; index) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>currentTrackIndex--;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Delete from cache</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>await deleteFromCache(track.id);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} catch (e) { console.error('Cache delete error:', e); }</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Add to deleted set so it won't show up on resync</p>
+<p class="p1"><span class="Apple-converted-space">            </span>deletedIds.add(track.id);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>saveDeletedIds();</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Remove from playlist</p>
+<p class="p1"><span class="Apple-converted-space">            </span>playlist.splice(index, 1);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>savePlaylistToStorage();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>renderPlaylist();</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>showToast('Removed from library', 'success');</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (playlist.length === 0) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>player.classList.add('hidden');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function savePlaylistToStorage() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const toSave = playlist.map(({ text, ...rest }) =&gt; rest);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>localStorage.setItem('textify_playlist', JSON.stringify(toSave));</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function loadCachedPlaylist() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const saved = localStorage.getItem('textify_playlist');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (saved) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playlist = JSON.parse(saved);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>// Filter out deleted ones</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playlist = playlist.filter(t =&gt; !deletedIds.has(t.id));</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const cached = await getAllCached();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const cachedMap = new Map(cached.map(c =&gt; [c.id, c]));</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playlist.forEach(track =&gt; { const doc = cachedMap.get(track.id); if (doc) { track.text = doc.text; track.status = 'cached'; } });</p>
+<p class="p1"><span class="Apple-converted-space">                </span>renderPlaylist();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function renderPlaylist() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (playlist.length === 0) { playlistEmpty.style.display = 'block'; playlistEl.innerHTML = ''; playlistCount.textContent = '0 documents'; return; }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>playlistEmpty.style.display = 'none';</p>
+<p class="p1"><span class="Apple-converted-space">            </span>playlistCount.textContent = `${playlist.length} document${playlist.length !== 1 ? 's' : ''}`;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>playlistEl.innerHTML = playlist.map((track, index) =&gt; `</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div class="track-wrapper"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div class="track-delete-bg"&gt;&lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/&gt;&lt;/svg&gt;Delete&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div class="track ${index === currentTrackIndex ? 'active' : ''} ${isPlaying &amp;&amp; index === currentTrackIndex ? 'playing' : ''} ${track.status === 'generating' ? 'generating' : ''}" data-index="${index}"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div class="track-number"&gt;&lt;span&gt;${index + 1}&lt;/span&gt;&lt;div class="track-equalizer"&gt;&lt;div class="eq-bar"&gt;&lt;/div&gt;&lt;div class="eq-bar"&gt;&lt;/div&gt;&lt;div class="eq-bar"&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div class="track-info"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div class="track-title"&gt;${escapeHtml(track.name)}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div class="track-meta"&gt;&lt;span class="track-folder"&gt;&lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/&gt;&lt;/svg&gt;${escapeHtml(track.folder)}&lt;/span&gt;&lt;span class="status-badge ${track.status}"&gt;${track.status}&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;button class="track-delete-btn" data-delete-index="${index}" title="Remove"&gt;&lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/&gt;&lt;/svg&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>`).join('');</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Track click handlers</p>
+<p class="p1"><span class="Apple-converted-space">            </span>document.querySelectorAll('.track').forEach(el =&gt; {<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                </span>el.addEventListener('click', (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>if (!e.target.closest('.track-delete-btn')) {</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>playTrack(parseInt(el.dataset.index));</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Delete button handlers</p>
+<p class="p1"><span class="Apple-converted-space">            </span>document.querySelectorAll('.track-delete-btn').forEach(btn =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>btn.addEventListener('click', (e) =&gt; deleteTrack(parseInt(btn.dataset.deleteIndex), e));</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Swipe to delete (touch devices)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setupSwipeToDelete();</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (playlist.length &gt; 0) player.classList.remove('hidden');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function setupSwipeToDelete() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>document.querySelectorAll('.track-wrapper').forEach((wrapper, index) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const track = wrapper.querySelector('.track');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>let startX = 0, currentX = 0, isDragging = false;</p>
+<p class="p2"><span class="Apple-converted-space">                </span></p>
+<p class="p1"><span class="Apple-converted-space">                </span>track.addEventListener('touchstart', (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>startX = e.touches[0].clientX;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>isDragging = true;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>track.classList.add('swiping');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>}, { passive: true });</p>
+<p class="p2"><span class="Apple-converted-space">                </span></p>
+<p class="p1"><span class="Apple-converted-space">                </span>track.addEventListener('touchmove', (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>if (!isDragging) return;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>currentX = e.touches[0].clientX;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const diff = currentX - startX;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>if (diff &lt; 0) {</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>track.style.transform = `translateX(${Math.max(diff, -100)}px)`;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>}, { passive: true });</p>
+<p class="p2"><span class="Apple-converted-space">                </span></p>
+<p class="p1"><span class="Apple-converted-space">                </span>track.addEventListener('touchend', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>isDragging = false;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>track.classList.remove('swiping');</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const diff = currentX - startX;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>if (diff &lt; -80) {</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>deleteTrack(index);</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>track.style.transform = '';</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>startX = 0;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>currentX = 0;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>async function playTrack(index) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (index &lt; 0 || index &gt;= playlist.length) return;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const track = playlist[index];</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (!track.text) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>showToast('Downloading document...', 'info');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>await downloadDocument(track);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (!playlist[index].text) { showToast('Could not load document', 'error'); return; }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>stopSpeech();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>currentTrackIndex = index;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const text = playlist[index].text;</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Start silent audio first for iOS lock screen</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>silentAudio.volume = 0.01;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>await silentAudio.play();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} catch (e) { console.log('Silent audio failed:', e); }</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>currentUtterance = new SpeechSynthesisUtterance(text);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>currentUtterance.rate = playbackSpeed;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const voices = speechSynthesis.getVoices();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const preferredVoice = voices.find(v =&gt; v.lang.startsWith('en') &amp;&amp; (v.name.includes('Samantha') || v.name.includes('Google') || v.name.includes('Natural'))) || voices.find(v =&gt; v.lang.startsWith('en'));</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (preferredVoice) currentUtterance.voice = preferredVoice;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>utteranceProgress = 0;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>currentUtterance.onstart = () =&gt; { isPlaying = true; isSpeaking = true; updatePlayButton(); renderPlaylist(); updateMediaSession(); startProgressTimer(); };</p>
+<p class="p1"><span class="Apple-converted-space">            </span>currentUtterance.onend = () =&gt; { isSpeaking = false; stopProgressTimer(); if (currentTrackIndex &lt; playlist.length - 1) { playTrack(currentTrackIndex + 1); } else { isPlaying = false; silentAudio.pause(); updatePlayButton(); renderPlaylist(); } };</p>
+<p class="p1"><span class="Apple-converted-space">            </span>currentUtterance.onerror = (e) =&gt; { console.error('Speech error:', e); isPlaying = false; isSpeaking = false; silentAudio.pause(); updatePlayButton(); renderPlaylist(); stopProgressTimer(); };</p>
+<p class="p1"><span class="Apple-converted-space">            </span>currentUtterance.onboundary = (e) =&gt; { if (e.name === 'word') { utteranceProgress = e.charIndex / text.length; updateProgressDisplay(); } };</p>
+<p class="p1"><span class="Apple-converted-space">            </span>playerTitle.textContent = track.name;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>playerPosition.textContent = `${index + 1} / ${playlist.length}`;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const wordCount = text.split(/\s+/).length;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const estimatedSeconds = (wordCount / 150) * 60 / playbackSpeed;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>totalTimeEl.textContent = formatTime(estimatedSeconds);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>speechSynthesis.speak(currentUtterance);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>updateMediaSession();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>let progressTimer = null;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>function startProgressTimer() { stopProgressTimer(); progressTimer = setInterval(updateProgressDisplay, 100); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>function stopProgressTimer() { if (progressTimer) { clearInterval(progressTimer); progressTimer = null; } }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function updateProgressDisplay() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>progressFill.style.width = `${utteranceProgress * 100}%`;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (currentTrackIndex &gt;= 0 &amp;&amp; playlist[currentTrackIndex]?.text) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const text = playlist[currentTrackIndex].text;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const wordCount = text.split(/\s+/).length;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const totalSeconds = (wordCount / 150) * 60 / playbackSpeed;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>const currentSeconds = utteranceProgress * totalSeconds;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>currentTimeEl.textContent = formatTime(currentSeconds);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function stopSpeech() {<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>speechSynthesis.cancel();<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>isSpeaking = false;<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>isPlaying = false;<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>silentAudio.pause();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>stopProgressTimer();<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function togglePlayPause() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (!isSpeaking &amp;&amp; currentTrackIndex === -1) { if (playlist.length &gt; 0) playTrack(0); return; }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (isSpeaking) {<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (speechSynthesis.paused) {<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                    </span>speechSynthesis.resume();<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                    </span>silentAudio.play().catch(() =&gt; {});</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>isPlaying = true;<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                </span>} else {<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                    </span>speechSynthesis.pause();<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                    </span>silentAudio.pause();</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>isPlaying = false;<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                </span>}<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>else { playTrack(currentTrackIndex &gt;= 0 ? currentTrackIndex : 0); }</p>
+<p class="p1"><span class="Apple-converted-space">            </span>updatePlayButton();<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>renderPlaylist();</p>
+<p class="p1"><span class="Apple-converted-space">            </span>updateMediaSession();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function updatePlayButton() { playIcon.style.display = isPlaying ? 'none' : 'block'; pauseIcon.style.display = isPlaying ? 'block' : 'none'; }</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function prevTrack() {<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (currentTrackIndex &gt; 0) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playTrack(currentTrackIndex - 1);<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>} else if (playlist.length &gt; 0) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playTrack(0);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function nextTrack() {<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (currentTrackIndex &lt; playlist.length - 1) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>playTrack(currentTrackIndex + 1);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function rewind() { if (currentTrackIndex &gt;= 0) playTrack(currentTrackIndex); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>function forward() { nextTrack(); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>function cycleSpeed() { const currentIndex = speeds.indexOf(playbackSpeed); playbackSpeed = speeds[(currentIndex + 1) % speeds.length]; speedBtn.textContent = `${playbackSpeed}x`; if (isSpeaking &amp;&amp; currentTrackIndex &gt;= 0) playTrack(currentTrackIndex); }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function setupMediaSession() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if ('mediaSession' in navigator) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>navigator.mediaSession.setActionHandler('play', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>console.log('Media session: play');</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>togglePlayPause();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                </span>navigator.mediaSession.setActionHandler('pause', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>console.log('Media session: pause');</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>togglePlayPause();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                </span>navigator.mediaSession.setActionHandler('previoustrack', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>console.log('Media session: prev');</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>prevTrack();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                </span>navigator.mediaSession.setActionHandler('nexttrack', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>console.log('Media session: next');</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>nextTrack();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                </span>navigator.mediaSession.setActionHandler('seekbackward', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>console.log('Media session: seekback');</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>rewind();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                </span>navigator.mediaSession.setActionHandler('seekforward', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>console.log('Media session: seekforward');</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>forward();</p>
+<p class="p1"><span class="Apple-converted-space">                </span>});</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function updateMediaSession() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if ('mediaSession' in navigator) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (currentTrackIndex &gt;= 0 &amp;&amp; playlist[currentTrackIndex]) {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const track = playlist[currentTrackIndex];</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>navigator.mediaSession.metadata = new MediaMetadata({<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                        </span>title: track.name,<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                        </span>artist: 'Textify',<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">                        </span>album: track.folder,</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>artwork: [{ src: 'data:image/svg+xml,&lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"&gt;&lt;rect fill="%230a0a0a" width="100" height="100" rx="20"/&gt;&lt;text x="50" y="68" font-size="50" text-anchor="middle" fill="%23e8ff47"&gt;T&lt;/text&gt;&lt;/svg&gt;', sizes: '512x512', type: 'image/svg+xml' }]</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function formatTime(seconds) { if (!seconds || isNaN(seconds)) return '0:00'; const mins = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60); return `${mins}:${secs.toString().padStart(2, '0')}`; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>function updateSyncStatus(status, text = '') { syncDot.className = 'sync-dot ' + status; syncText.textContent = status === 'syncing' ? 'Syncing...' : (status === 'synced' ? (text || 'Synced') : (status === 'error' ? (text || 'Error') : 'Offline')); }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>function showToast(message, type = 'info') { toast.textContent = message; toast.className = `toast ${type} show`; setTimeout(() =&gt; toast.classList.remove('show'), 3000); }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>function setupEventListeners() {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>authBtn.addEventListener('click', signIn);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>refreshBtn.addEventListener('click', syncWithDrive);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>playPauseBtn.addEventListener('click', togglePlayPause);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>prevBtn.addEventListener('click', prevTrack);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>nextBtn.addEventListener('click', nextTrack);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>rewindBtn.addEventListener('click', rewind);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>forwardBtn.addEventListener('click', forward);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>speedBtn.addEventListener('click', cycleSpeed);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>progressBar.addEventListener('click', () =&gt; showToast('Seeking not available with browser voices', 'info'));</p>
+<p class="p1"><span class="Apple-converted-space">            </span>speechSynthesis.onvoiceschanged = () =&gt; console.log('Voices loaded:', speechSynthesis.getVoices().length);</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Handle visibility change - iOS sometimes stops speech</p>
+<p class="p1"><span class="Apple-converted-space">            </span>document.addEventListener('visibilitychange', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (document.visibilityState === 'visible' &amp;&amp; isSpeaking &amp;&amp; !speechSynthesis.speaking) {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>// Speech stopped while in background, try to resume</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>if (currentTrackIndex &gt;= 0) {</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>playTrack(currentTrackIndex);</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>init();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
 </body>
 </html>
