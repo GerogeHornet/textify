@@ -1077,11 +1077,12 @@
         // ============================================
         // CONFIGURATION - UPDATE THESE VALUES
         // ============================================
-        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
-        const GOOGLE_API_KEY = 'YOUR_GOOGLE_API_KEY';
+        const GOOGLE_CLIENT_ID = '959875839996-h7cogpr60gugmqco9f9i5ehkjr0hq569.apps.googleusercontent.com';
+        const GOOGLE_API_KEY = 'AIzaSyCQ1_Y6-w_lOzjRUMN2lxRFuZfT4y-9ICg';
         // ============================================
 
-        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
+        const ALLOWED_USER = 'briandigate';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 
         // State
@@ -1311,17 +1312,35 @@
             }
         }
 
-        function handleAuthCallback(resp) {
+        async function handleAuthCallback(resp) {
             if (resp.error) {
                 console.error('Auth error:', resp);
                 showToast('Authentication failed', 'error');
                 return;
             }
             
-            accessToken = resp.access_token;
-            localStorage.setItem('voxa_access_token', accessToken);
-            showAuthenticatedState();
-            syncWithDrive();
+            // Verify user identity
+            try {
+                const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                    headers: { 'Authorization': `Bearer ${resp.access_token}` }
+                });
+                const user = await userInfo.json();
+                const username = user.email.split('@')[0];
+                
+                if (username.toLowerCase() !== ALLOWED_USER.toLowerCase()) {
+                    showToast(`Access denied. This app is private.`, 'error');
+                    google.accounts.oauth2.revoke(resp.access_token);
+                    return;
+                }
+                
+                accessToken = resp.access_token;
+                localStorage.setItem('voxa_access_token', accessToken);
+                showAuthenticatedState();
+                syncWithDrive();
+            } catch (e) {
+                console.error('User verification failed:', e);
+                showToast('Could not verify user', 'error');
+            }
         }
 
         function signIn() {
