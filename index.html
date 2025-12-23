@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Voxa">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a0a0a' width='100' height='100' rx='20'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='%23e8ff47'>V</text></svg>">
+    <title>Voxa — Google Drive TTS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --surface-hover: #1a1a1a;
+            --surface-active: #222;
+            --border: #2a2a2a;
+            --text: #fafafa;
+            --text-muted: #888;
+            --text-dim: #555;
+            --accent: #e8ff47;
+            --accent-dim: #b8cc39;
+            --accent-bg: rgba(232, 255, 71, 0.1);
+            --success: #4ade80;
+            --error: #f87171;
+            --warning: #fbbf24;
+            --serif: 'Instrument Serif', Georgia, serif;
+            --sans: 'DM Sans', system-ui, sans-serif;
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+
+        /* Header */
+        .header {
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: var(--serif);
+            font-size: 1.75rem;
+            font-style: italic;
+            letter-spacing: -0.02em;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+        }
+
+        .sync-dot.syncing {
+            background: var(--warning);
+            animation: pulse 1s infinite;
+        }
+
+        .sync-dot.synced {
+            background: var(--success);
+        }
+
+        .sync-dot.error {
+            background: var(--error);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: var(--surface-hover);
+            border-color: #444;
+        }
+
+        .icon-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Auth Screen */
+        .auth-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+            text-align: center;
+        }
+
+        .auth-screen.hidden {
+            display: none;
+        }
+
+        .auth-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+            color: var(--accent);
+        }
+
+        .auth-title {
+            font-family: var(--serif);
+            font-size: 1.75rem;
+            font-style: italic;
+            margin-bottom: 12px;
+        }
+
+        .auth-desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            max-width: 320px;
+            margin-bottom: 32px;
+        }
+
+        .auth-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 32px;
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            border-radius: var(--radius);
+            font-family: var(--sans);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+
+        .auth-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Content Area */
+        .content {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .content.visible {
+            display: flex;
+        }
+
+        /* Playlist */
+        .playlist-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            padding-bottom: 200px;
+        }
+
+        .playlist-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .playlist-title {
+            font-family: var(--serif);
+            font-size: 1.25rem;
+            font-style: italic;
+        }
+
+        .playlist-count {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .playlist-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .playlist-empty-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .playlist {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .track {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .track:hover {
+            background: var(--surface-hover);
+            border-color: #444;
+        }
+
+        .track.active {
+            background: var(--accent-bg);
+            border-color: var(--accent);
+        }
+
+        .track.downloading {
+            opacity: 0.7;
+        }
+
+        .track-number {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .track.active .track-number {
+            color: var(--accent);
+        }
+
+        .track-equalizer {
+            display: none;
+            gap: 2px;
+            align-items: flex-end;
+            height: 16px;
+        }
+
+        .track.active.playing .track-number span {
+            display: none;
+        }
+
+        .track.active.playing .track-equalizer {
+            display: flex;
+        }
+
+        .eq-bar {
+            width: 3px;
+            background: var(--accent);
+            border-radius: 1px;
+            animation: eq 0.8s ease-in-out infinite;
+        }
+
+        .eq-bar:nth-child(1) { height: 60%; animation-delay: 0s; }
+        .eq-bar:nth-child(2) { height: 100%; animation-delay: 0.2s; }
+        .eq-bar:nth-child(3) { height: 40%; animation-delay: 0.4s; }
+
+        @keyframes eq {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(0.5); }
+        }
+
+        .track-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .track-title {
+            font-weight: 500;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .track-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .track-folder {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .track-folder svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .track-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-badge.cached {
+            background: rgba(74, 222, 128, 0.15);
+            color: var(--success);
+        }
+
+        .status-badge.downloading {
+            background: rgba(251, 191, 36, 0.15);
+            color: var(--warning);
+        }
+
+        .status-badge.pending {
+            background: rgba(136, 136, 136, 0.15);
+            color: var(--text-muted);
+        }
+
+        .track-duration {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        /* Player */
+        .player {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, var(--bg) 80%, transparent);
+            padding: 20px 24px 32px;
+            padding-bottom: max(32px, env(safe-area-inset-bottom));
+        }
+
+        .player-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
+        }
+
+        .player-track-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .player-track-title {
+            flex: 1;
+            font-weight: 500;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-track-position {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .player-progress {
+            margin-bottom: 16px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .progress-times {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .player-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        .control-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: var(--surface-hover);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .control-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .control-btn.play-pause {
+            width: 64px;
+            height: 64px;
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .control-btn.play-pause:hover {
+            background: var(--accent-dim);
+            transform: scale(1.05);
+        }
+
+        .control-btn.play-pause svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .speed-btn {
+            min-width: 48px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .speed-btn:hover {
+            background: var(--surface-hover);
+            border-color: #444;
+        }
+
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 200;
+            padding: 20px;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 500px;
+            max-height: 80vh;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px 20px 20px 20px;
+            overflow: hidden;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-family: var(--serif);
+            font-size: 1.25rem;
+            font-style: italic;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--surface-hover);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .modal-close svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            max-height: 60vh;
+        }
+
+        .setting-group {
+            margin-bottom: 24px;
+        }
+
+        .setting-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .setting-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .setting-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .setting-input::placeholder {
+            color: var(--text-dim);
+        }
+
+        .setting-hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        .folder-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .folder-input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .folder-input-row .setting-input {
+            flex: 1;
+        }
+
+        .remove-folder-btn {
+            width: 44px;
+            flex-shrink: 0;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--error);
+            cursor: pointer;
+        }
+
+        .add-folder-btn {
+            padding: 12px;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-muted);
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-folder-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .voice-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .voice-option {
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .voice-option:hover {
+            border-color: #444;
+        }
+
+        .voice-option.selected {
+            border-color: var(--accent);
+            background: var(--accent-bg);
+        }
+
+        .voice-option-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .voice-option-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn.primary {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+        }
+
+        .modal-btn.primary:hover {
+            background: var(--accent-dim);
+        }
+
+        .modal-btn.secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .modal-btn.secondary:hover {
+            background: var(--surface-hover);
+        }
+
+        .modal-btn.danger {
+            background: transparent;
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 14px 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: all 0.3s ease-out;
+            z-index: 300;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.error {
+            border-color: var(--error);
+        }
+
+        .toast.success {
+            border-color: var(--success);
+        }
+
+        /* Loading */
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .header {
+                padding: 16px 20px;
+            }
+
+            .playlist-container {
+                padding: 16px 20px;
+                padding-bottom: 220px;
+            }
+
+            .player {
+                padding: 16px 20px 24px;
+            }
+
+            .voice-options {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1 class="logo">Voxa<span>.</span></h1>
+            <div class="header-actions">
+                <div class="sync-status" id="sync-status">
+                    <div class="sync-dot" id="sync-dot"></div>
+                    <span id="sync-text">Offline</span>
+                </div>
+                <button class="icon-btn" id="refresh-btn" title="Sync with Drive">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                    </svg>
+                </button>
+                <button class="icon-btn" id="settings-btn" title="Settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="main">
+            <!-- Auth Screen -->
+            <div class="auth-screen" id="auth-screen">
+                <svg class="auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <h2 class="auth-title">Connect Google Drive</h2>
+                <p class="auth-desc">Sign in to sync documents from your configured folders and generate audio for offline listening.</p>
+                <button class="auth-btn" id="auth-btn">
+                    <svg viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Sign in with Google
+                </button>
+            </div>
+
+            <!-- Main Content -->
+            <div class="content" id="content">
+                <div class="playlist-container">
+                    <div class="playlist-header">
+                        <h2 class="playlist-title">Your Library</h2>
+                        <span class="playlist-count" id="playlist-count">0 documents</span>
+                    </div>
+                    
+                    <div class="playlist-empty" id="playlist-empty">
+                        <svg class="playlist-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/>
+                        </svg>
+                        <p>No documents found. Configure your folders in settings and sync.</p>
+                    </div>
+
+                    <div class="playlist" id="playlist"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Player -->
+        <div class="player" id="player" style="display: none;">
+            <div class="player-card">
+                <div class="player-track-info">
+                    <span class="player-track-title" id="player-title">No track selected</span>
+                    <span class="player-track-position" id="player-position">1 / 1</span>
+                </div>
+                <div class="player-progress">
+                    <div class="progress-bar" id="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-times">
+                        <span id="current-time">0:00</span>
+                        <span id="total-time">0:00</span>
+                    </div>
+                </div>
+                <div class="player-controls">
+                    <button class="control-btn" id="prev-btn" title="Previous">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn" id="rewind-btn" title="Rewind 15s">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 4v6h6"/>
+                            <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+                            <text x="12" y="14" font-size="7" fill="currentColor" stroke="none" text-anchor="middle" font-family="sans-serif">15</text>
+                        </svg>
+                    </button>
+                    <button class="control-btn play-pause" id="play-pause-btn">
+                        <svg viewBox="0 0 24 24" fill="currentColor" id="play-icon">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor" id="pause-icon" style="display: none;">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn" id="forward-btn" title="Forward 30s">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6"/>
+                            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                            <text x="12" y="14" font-size="7" fill="currentColor" stroke="none" text-anchor="middle" font-family="sans-serif">30</text>
+                        </svg>
+                    </button>
+                    <button class="control-btn" id="next-btn" title="Next">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                        </svg>
+                    </button>
+                    <button class="speed-btn" id="speed-btn">1x</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Settings</h3>
+                <button class="modal-close" id="close-settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label class="setting-label">OpenAI API Key</label>
+                    <input type="password" class="setting-input" id="api-key-input" placeholder="sk-...">
+                    <p class="setting-hint">Required for high-quality TTS. Get your key from <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent);">platform.openai.com</a></p>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">Google Drive Folders</label>
+                    <div class="folder-inputs" id="folder-inputs">
+                        <div class="folder-input-row">
+                            <input type="text" class="setting-input folder-input" placeholder="Folder name or path">
+                        </div>
+                    </div>
+                    <button class="add-folder-btn" id="add-folder-btn">+ Add another folder</button>
+                    <p class="setting-hint">Enter folder names exactly as they appear in Google Drive</p>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">File Name Filter (ends with)</label>
+                    <input type="text" class="setting-input" id="file-suffix-input" placeholder="e.g., _tts or -audio">
+                    <p class="setting-hint">Only sync files whose names end with this text (leave blank for all docs)</p>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">Voice</label>
+                    <div class="voice-options" id="voice-options">
+                        <button class="voice-option selected" data-voice="alloy">
+                            <div class="voice-option-name">Alloy</div>
+                            <div class="voice-option-desc">Neutral & balanced</div>
+                        </button>
+                        <button class="voice-option" data-voice="echo">
+                            <div class="voice-option-name">Echo</div>
+                            <div class="voice-option-desc">Male voice</div>
+                        </button>
+                        <button class="voice-option" data-voice="fable">
+                            <div class="voice-option-name">Fable</div>
+                            <div class="voice-option-desc">British accent</div>
+                        </button>
+                        <button class="voice-option" data-voice="onyx">
+                            <div class="voice-option-name">Onyx</div>
+                            <div class="voice-option-desc">Deep male</div>
+                        </button>
+                        <button class="voice-option" data-voice="nova">
+                            <div class="voice-option-name">Nova</div>
+                            <div class="voice-option-desc">Female voice</div>
+                        </button>
+                        <button class="voice-option" data-voice="shimmer">
+                            <div class="voice-option-name">Shimmer</div>
+                            <div class="voice-option-desc">Warm female</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn danger" id="sign-out-btn">Sign Out</button>
+                <button class="modal-btn primary" id="save-settings-btn">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Google API -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+
+    <script>
+        // ============================================
+        // CONFIGURATION - UPDATE THESE VALUES
+        // ============================================
+        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+        const GOOGLE_API_KEY = 'YOUR_GOOGLE_API_KEY';
+        // ============================================
+
+        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+
+        // State
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let accessToken = null;
+        
+        let playlist = [];
+        let currentTrackIndex = -1;
+        let isPlaying = false;
+        let audioElement = null;
+        let playbackSpeed = 1;
+        const speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
+
+        // Settings
+        let settings = {
+            apiKey: '',
+            folders: [''],
+            fileSuffix: '',
+            voice: 'alloy'
+        };
+
+        // Audio cache (IndexedDB)
+        let db;
+        const DB_NAME = 'VoxaAudioCache';
+        const STORE_NAME = 'audioFiles';
+
+        // DOM Elements
+        const authScreen = document.getElementById('auth-screen');
+        const authBtn = document.getElementById('auth-btn');
+        const content = document.getElementById('content');
+        const syncStatus = document.getElementById('sync-status');
+        const syncDot = document.getElementById('sync-dot');
+        const syncText = document.getElementById('sync-text');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettings = document.getElementById('close-settings');
+        const playlistEl = document.getElementById('playlist');
+        const playlistEmpty = document.getElementById('playlist-empty');
+        const playlistCount = document.getElementById('playlist-count');
+        const player = document.getElementById('player');
+        const playerTitle = document.getElementById('player-title');
+        const playerPosition = document.getElementById('player-position');
+        const progressBar = document.getElementById('progress-bar');
+        const progressFill = document.getElementById('progress-fill');
+        const currentTimeEl = document.getElementById('current-time');
+        const totalTimeEl = document.getElementById('total-time');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const rewindBtn = document.getElementById('rewind-btn');
+        const forwardBtn = document.getElementById('forward-btn');
+        const speedBtn = document.getElementById('speed-btn');
+        const toast = document.getElementById('toast');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const folderInputs = document.getElementById('folder-inputs');
+        const addFolderBtn = document.getElementById('add-folder-btn');
+        const fileSuffixInput = document.getElementById('file-suffix-input');
+        const voiceOptions = document.getElementById('voice-options');
+        const saveSettingsBtn = document.getElementById('save-settings-btn');
+        const signOutBtn = document.getElementById('sign-out-btn');
+
+        // Initialize
+        async function init() {
+            loadSettings();
+            await initDB();
+            await loadCachedPlaylist();
+            initGoogleAPI();
+            setupEventListeners();
+            setupMediaSession();
+        }
+
+        // IndexedDB
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve();
+                };
+                
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        async function cacheAudio(id, blob, metadata) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.put({ id, blob, metadata, cachedAt: Date.now() });
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function getCachedAudio(id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.get(id);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function getAllCached() {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function deleteCachedAudio(id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.delete(id);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        // Settings
+        function loadSettings() {
+            const saved = localStorage.getItem('voxa_settings');
+            if (saved) {
+                settings = { ...settings, ...JSON.parse(saved) };
+            }
+            
+            apiKeyInput.value = settings.apiKey;
+            fileSuffixInput.value = settings.fileSuffix;
+            
+            // Populate folder inputs
+            folderInputs.innerHTML = '';
+            (settings.folders.length ? settings.folders : ['']).forEach(folder => {
+                addFolderInput(folder);
+            });
+            
+            // Select voice
+            document.querySelectorAll('.voice-option').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.voice === settings.voice);
+            });
+        }
+
+        function saveSettings() {
+            settings.apiKey = apiKeyInput.value.trim();
+            settings.fileSuffix = fileSuffixInput.value.trim();
+            settings.folders = Array.from(document.querySelectorAll('.folder-input'))
+                .map(input => input.value.trim())
+                .filter(v => v);
+            
+            const selectedVoice = document.querySelector('.voice-option.selected');
+            if (selectedVoice) {
+                settings.voice = selectedVoice.dataset.voice;
+            }
+            
+            localStorage.setItem('voxa_settings', JSON.stringify(settings));
+            showToast('Settings saved', 'success');
+            closeSettingsModal();
+        }
+
+        function addFolderInput(value = '') {
+            const row = document.createElement('div');
+            row.className = 'folder-input-row';
+            row.innerHTML = `
+                <input type="text" class="setting-input folder-input" placeholder="Folder name or path" value="${value}">
+                <button class="remove-folder-btn" title="Remove">×</button>
+            `;
+            
+            row.querySelector('.remove-folder-btn').addEventListener('click', () => {
+                if (document.querySelectorAll('.folder-input').length > 1) {
+                    row.remove();
+                }
+            });
+            
+            folderInputs.appendChild(row);
+        }
+
+        // Google API
+        function initGoogleAPI() {
+            gapi.load('client', async () => {
+                try {
+                    await gapi.client.init({
+                        apiKey: GOOGLE_API_KEY,
+                        discoveryDocs: [DISCOVERY_DOC],
+                    });
+                    gapiInited = true;
+                    maybeEnableAuth();
+                } catch (e) {
+                    console.error('GAPI init error:', e);
+                }
+            });
+
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: SCOPES,
+                callback: handleAuthCallback,
+            });
+            gisInited = true;
+            maybeEnableAuth();
+        }
+
+        function maybeEnableAuth() {
+            if (gapiInited && gisInited) {
+                // Check for stored token
+                const storedToken = localStorage.getItem('voxa_access_token');
+                if (storedToken) {
+                    accessToken = storedToken;
+                    gapi.client.setToken({ access_token: storedToken });
+                    showAuthenticatedState();
+                    syncWithDrive();
+                }
+            }
+        }
+
+        function handleAuthCallback(resp) {
+            if (resp.error) {
+                console.error('Auth error:', resp);
+                showToast('Authentication failed', 'error');
+                return;
+            }
+            
+            accessToken = resp.access_token;
+            localStorage.setItem('voxa_access_token', accessToken);
+            showAuthenticatedState();
+            syncWithDrive();
+        }
+
+        function signIn() {
+            if (!gisInited || !gapiInited) {
+                showToast('Google API not loaded yet', 'error');
+                return;
+            }
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        }
+
+        function signOut() {
+            if (accessToken) {
+                google.accounts.oauth2.revoke(accessToken);
+            }
+            accessToken = null;
+            localStorage.removeItem('voxa_access_token');
+            authScreen.classList.remove('hidden');
+            content.classList.remove('visible');
+            player.style.display = 'none';
+            updateSyncStatus('offline');
+            closeSettingsModal();
+        }
+
+        function showAuthenticatedState() {
+            authScreen.classList.add('hidden');
+            content.classList.add('visible');
+            if (playlist.length > 0) {
+                player.style.display = 'block';
+            }
+        }
+
+        // Google Drive Sync
+        async function syncWithDrive() {
+            if (!accessToken || settings.folders.length === 0 || !settings.folders[0]) {
+                updateSyncStatus('error', 'Configure folders');
+                return;
+            }
+
+            updateSyncStatus('syncing');
+
+            try {
+                const files = [];
+                
+                for (const folderName of settings.folders) {
+                    // Find folder
+                    const folderQuery = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+                    const folderResponse = await gapi.client.drive.files.list({
+                        q: folderQuery,
+                        fields: 'files(id, name)',
+                        spaces: 'drive'
+                    });
+                    
+                    for (const folder of folderResponse.result.files || []) {
+                        // Get docs in folder
+                        let fileQuery = `'${folder.id}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`;
+                        
+                        const fileResponse = await gapi.client.drive.files.list({
+                            q: fileQuery,
+                            fields: 'files(id, name, modifiedTime)',
+                            orderBy: 'modifiedTime desc',
+                            pageSize: 100
+                        });
+                        
+                        for (const file of fileResponse.result.files || []) {
+                            // Apply suffix filter
+                            if (settings.fileSuffix && !file.name.endsWith(settings.fileSuffix)) {
+                                continue;
+                            }
+                            
+                            files.push({
+                                id: file.id,
+                                name: file.name.replace(settings.fileSuffix, ''),
+                                folder: folder.name,
+                                modifiedTime: file.modifiedTime
+                            });
+                        }
+                    }
+                }
+
+                // Update playlist
+                playlist = files.map(file => ({
+                    ...file,
+                    status: 'pending',
+                    duration: null
+                }));
+
+                // Check cache status
+                const cached = await getAllCached();
+                const cachedIds = new Set(cached.map(c => c.id));
+                
+                playlist.forEach(track => {
+                    if (cachedIds.has(track.id)) {
+                        const cachedItem = cached.find(c => c.id === track.id);
+                        track.status = 'cached';
+                        track.duration = cachedItem.metadata?.duration;
+                    }
+                });
+
+                savePlaylistToStorage();
+                renderPlaylist();
+                updateSyncStatus('synced', `${playlist.length} docs`);
+
+                // Start downloading uncached items
+                downloadPendingTracks();
+
+            } catch (error) {
+                console.error('Sync error:', error);
+                updateSyncStatus('error', 'Sync failed');
+                showToast('Failed to sync with Drive', 'error');
+            }
+        }
+
+        async function downloadPendingTracks() {
+            if (!settings.apiKey) {
+                showToast('Add OpenAI API key in settings', 'error');
+                return;
+            }
+
+            for (const track of playlist) {
+                if (track.status === 'pending') {
+                    await downloadTrackAudio(track);
+                }
+            }
+        }
+
+        async function downloadTrackAudio(track) {
+            const index = playlist.findIndex(t => t.id === track.id);
+            if (index === -1) return;
+
+            playlist[index].status = 'downloading';
+            renderPlaylist();
+
+            try {
+                // Get document content
+                const response = await gapi.client.drive.files.export({
+                    fileId: track.id,
+                    mimeType: 'text/plain'
+                });
+                
+                const text = response.body;
+                
+                if (!text || text.trim().length === 0) {
+                    throw new Error('Empty document');
+                }
+
+                // Generate audio with OpenAI
+                const audioResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'tts-1',
+                        input: text.slice(0, 4096), // API limit
+                        voice: settings.voice,
+                        response_format: 'mp3'
+                    })
+                });
+
+                if (!audioResponse.ok) {
+                    const error = await audioResponse.json();
+                    throw new Error(error.error?.message || 'TTS API failed');
+                }
+
+                const audioBlob = await audioResponse.blob();
+                
+                // Get duration
+                const duration = await getAudioDuration(audioBlob);
+
+                // Cache it
+                await cacheAudio(track.id, audioBlob, {
+                    name: track.name,
+                    folder: track.folder,
+                    duration
+                });
+
+                playlist[index].status = 'cached';
+                playlist[index].duration = duration;
+                savePlaylistToStorage();
+                renderPlaylist();
+
+            } catch (error) {
+                console.error('Download error:', error);
+                playlist[index].status = 'pending';
+                renderPlaylist();
+                showToast(`Failed: ${track.name}`, 'error');
+            }
+        }
+
+        function getAudioDuration(blob) {
+            return new Promise((resolve) => {
+                const audio = new Audio();
+                audio.src = URL.createObjectURL(blob);
+                audio.addEventListener('loadedmetadata', () => {
+                    resolve(audio.duration);
+                    URL.revokeObjectURL(audio.src);
+                });
+                audio.addEventListener('error', () => resolve(null));
+            });
+        }
+
+        // Playlist
+        function savePlaylistToStorage() {
+            localStorage.setItem('voxa_playlist', JSON.stringify(playlist));
+        }
+
+        async function loadCachedPlaylist() {
+            const saved = localStorage.getItem('voxa_playlist');
+            if (saved) {
+                playlist = JSON.parse(saved);
+                
+                // Verify cache status
+                const cached = await getAllCached();
+                const cachedIds = new Set(cached.map(c => c.id));
+                
+                playlist.forEach(track => {
+                    if (!cachedIds.has(track.id)) {
+                        track.status = 'pending';
+                    }
+                });
+                
+                renderPlaylist();
+            }
+        }
+
+        function renderPlaylist() {
+            if (playlist.length === 0) {
+                playlistEmpty.style.display = 'block';
+                playlistEl.innerHTML = '';
+                playlistCount.textContent = '0 documents';
+                return;
+            }
+
+            playlistEmpty.style.display = 'none';
+            playlistCount.textContent = `${playlist.length} document${playlist.length !== 1 ? 's' : ''}`;
+
+            playlistEl.innerHTML = playlist.map((track, index) => `
+                <div class="track ${index === currentTrackIndex ? 'active' : ''} ${isPlaying && index === currentTrackIndex ? 'playing' : ''} ${track.status === 'downloading' ? 'downloading' : ''}" 
+                     data-index="${index}">
+                    <div class="track-number">
+                        <span>${index + 1}</span>
+                        <div class="track-equalizer">
+                            <div class="eq-bar"></div>
+                            <div class="eq-bar"></div>
+                            <div class="eq-bar"></div>
+                        </div>
+                    </div>
+                    <div class="track-info">
+                        <div class="track-title">${escapeHtml(track.name)}</div>
+                        <div class="track-meta">
+                            <span class="track-folder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                                </svg>
+                                ${escapeHtml(track.folder)}
+                            </span>
+                            <span class="status-badge ${track.status}">${track.status}</span>
+                        </div>
+                    </div>
+                    <span class="track-duration">${track.duration ? formatTime(track.duration) : '--:--'}</span>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            document.querySelectorAll('.track').forEach(el => {
+                el.addEventListener('click', () => {
+                    const index = parseInt(el.dataset.index);
+                    playTrack(index);
+                });
+            });
+
+            if (playlist.length > 0) {
+                player.style.display = 'block';
+            }
+        }
+
+        // Playback
+        async function playTrack(index) {
+            if (index < 0 || index >= playlist.length) return;
+            
+            const track = playlist[index];
+            
+            if (track.status !== 'cached') {
+                showToast('Track not downloaded yet', 'error');
+                return;
+            }
+
+            currentTrackIndex = index;
+            
+            // Stop current audio
+            if (audioElement) {
+                audioElement.pause();
+                audioElement.src = '';
+            }
+
+            // Load from cache
+            const cached = await getCachedAudio(track.id);
+            if (!cached) {
+                showToast('Track not in cache', 'error');
+                playlist[index].status = 'pending';
+                renderPlaylist();
+                return;
+            }
+
+            const url = URL.createObjectURL(cached.blob);
+            audioElement = new Audio(url);
+            audioElement.playbackRate = playbackSpeed;
+
+            audioElement.addEventListener('loadedmetadata', () => {
+                totalTimeEl.textContent = formatTime(audioElement.duration);
+                updateMediaSession();
+            });
+
+            audioElement.addEventListener('timeupdate', updateProgress);
+            audioElement.addEventListener('ended', handleTrackEnded);
+            audioElement.addEventListener('play', () => {
+                isPlaying = true;
+                updatePlayButton();
+                renderPlaylist();
+                updateMediaSession();
+            });
+            audioElement.addEventListener('pause', () => {
+                isPlaying = false;
+                updatePlayButton();
+                renderPlaylist();
+            });
+
+            playerTitle.textContent = track.name;
+            playerPosition.textContent = `${index + 1} / ${playlist.length}`;
+            
+            await audioElement.play();
+        }
+
+        function togglePlayPause() {
+            if (!audioElement) {
+                if (playlist.length > 0) {
+                    playTrack(0);
+                }
+                return;
+            }
+
+            if (isPlaying) {
+                audioElement.pause();
+            } else {
+                audioElement.play();
+            }
+        }
+
+        function updatePlayButton() {
+            playIcon.style.display = isPlaying ? 'none' : 'block';
+            pauseIcon.style.display = isPlaying ? 'block' : 'none';
+        }
+
+        function updateProgress() {
+            if (!audioElement) return;
+            
+            const progress = (audioElement.currentTime / audioElement.duration) * 100;
+            progressFill.style.width = `${progress}%`;
+            currentTimeEl.textContent = formatTime(audioElement.currentTime);
+            
+            // Update media session position
+            if ('setPositionState' in navigator.mediaSession) {
+                navigator.mediaSession.setPositionState({
+                    duration: audioElement.duration,
+                    playbackRate: audioElement.playbackRate,
+                    position: audioElement.currentTime
+                });
+            }
+        }
+
+        function seek(e) {
+            if (!audioElement) return;
+            
+            const rect = progressBar.getBoundingClientRect();
+            const percent = (e.clientX - rect.left) / rect.width;
+            audioElement.currentTime = percent * audioElement.duration;
+        }
+
+        function rewind() {
+            if (audioElement) {
+                audioElement.currentTime = Math.max(0, audioElement.currentTime - 15);
+            }
+        }
+
+        function forward() {
+            if (audioElement) {
+                audioElement.currentTime = Math.min(audioElement.duration, audioElement.currentTime + 30);
+            }
+        }
+
+        function prevTrack() {
+            if (currentTrackIndex > 0) {
+                playTrack(currentTrackIndex - 1);
+            }
+        }
+
+        function nextTrack() {
+            if (currentTrackIndex < playlist.length - 1) {
+                playTrack(currentTrackIndex + 1);
+            }
+        }
+
+        function handleTrackEnded() {
+            if (currentTrackIndex < playlist.length - 1) {
+                playTrack(currentTrackIndex + 1);
+            } else {
+                isPlaying = false;
+                updatePlayButton();
+                renderPlaylist();
+            }
+        }
+
+        function cycleSpeed() {
+            const currentIndex = speeds.indexOf(playbackSpeed);
+            playbackSpeed = speeds[(currentIndex + 1) % speeds.length];
+            speedBtn.textContent = `${playbackSpeed}x`;
+            
+            if (audioElement) {
+                audioElement.playbackRate = playbackSpeed;
+            }
+        }
+
+        // Media Session API (iOS controls)
+        function setupMediaSession() {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.setActionHandler('play', togglePlayPause);
+                navigator.mediaSession.setActionHandler('pause', togglePlayPause);
+                navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
+                navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+                navigator.mediaSession.setActionHandler('seekbackward', rewind);
+                navigator.mediaSession.setActionHandler('seekforward', forward);
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    if (audioElement && details.seekTime !== undefined) {
+                        audioElement.currentTime = details.seekTime;
+                    }
+                });
+            }
+        }
+
+        function updateMediaSession() {
+            if ('mediaSession' in navigator && currentTrackIndex >= 0) {
+                const track = playlist[currentTrackIndex];
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: track.name,
+                    artist: 'Voxa',
+                    album: track.folder
+                });
+            }
+        }
+
+        // Utilities
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function updateSyncStatus(status, text = '') {
+            syncDot.className = 'sync-dot ' + status;
+            
+            switch (status) {
+                case 'syncing':
+                    syncText.textContent = 'Syncing...';
+                    break;
+                case 'synced':
+                    syncText.textContent = text || 'Synced';
+                    break;
+                case 'error':
+                    syncText.textContent = text || 'Error';
+                    break;
+                default:
+                    syncText.textContent = 'Offline';
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function openSettingsModal() {
+            settingsModal.classList.add('open');
+        }
+
+        function closeSettingsModal() {
+            settingsModal.classList.remove('open');
+        }
+
+        // Event Listeners
+        function setupEventListeners() {
+            authBtn.addEventListener('click', signIn);
+            refreshBtn.addEventListener('click', syncWithDrive);
+            settingsBtn.addEventListener('click', openSettingsModal);
+            closeSettings.addEventListener('click', closeSettingsModal);
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) closeSettingsModal();
+            });
+            
+            addFolderBtn.addEventListener('click', () => addFolderInput());
+            saveSettingsBtn.addEventListener('click', saveSettings);
+            signOutBtn.addEventListener('click', signOut);
+            
+            voiceOptions.addEventListener('click', (e) => {
+                const btn = e.target.closest('.voice-option');
+                if (btn) {
+                    document.querySelectorAll('.voice-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                }
+            });
+
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            prevBtn.addEventListener('click', prevTrack);
+            nextBtn.addEventListener('click', nextTrack);
+            rewindBtn.addEventListener('click', rewind);
+            forwardBtn.addEventListener('click', forward);
+            speedBtn.addEventListener('click', cycleSpeed);
+            progressBar.addEventListener('click', seek);
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
