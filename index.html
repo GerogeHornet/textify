@@ -189,9 +189,11 @@
     var textChunks = []; 
     var currentChunkIdx = 0;
 
-    // Hardcoded Full Fallback Voices (skipping B, as it doesn't exist)
+    // COMPLETE Hardcoded Voices A-J
+    // Including B and G as requested, plus E which was missing.
     const BACKUP_VOICES = [
         { name: 'en-US-Neural2-A', ssmlGender: 'MALE' },
+        { name: 'en-US-Neural2-B', ssmlGender: 'MALE' },
         { name: 'en-US-Neural2-C', ssmlGender: 'FEMALE' },
         { name: 'en-US-Neural2-D', ssmlGender: 'MALE' },
         { name: 'en-US-Neural2-E', ssmlGender: 'FEMALE' },
