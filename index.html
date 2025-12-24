@@ -392,7 +392,7 @@
     // Sync
     function syncDrive() {
         syncDot.className = 'sync-dot syncing';
-        syncText.textContent = 'Syncing...';
+        syncText.textContent = 'Scanning...'; // More accurate text
         refreshBtn.classList.add('spinning');
 
         var files = [];
@@ -403,12 +403,13 @@
                 var folderName = folderResp.result.name;
                 gapi.client.drive.files.list({
                     q: "'" + folderId + "' in parents and mimeType='application/vnd.google-apps.document' and trashed=false",
-                    fields: 'files(id,name,modifiedTime)',
+                    fields: 'files(id,name,modifiedTime,createdTime)', // Added createdTime for sort
+                    orderBy: 'createdTime desc', // Sort Newest First
                     pageSize: 100
                 }).then(function(resp) {
                     (resp.result.files || []).forEach(function(f) {
                         if (!deletedIds.has(f.id)) {
-                            files.push({id: f.id, name: f.name, folder: folderName, modified: f.modifiedTime});
+                            files.push({id: f.id, name: f.name, folder: folderName, modified: f.modifiedTime, created: f.createdTime});
                         }
                     });
                     foldersDone++;
@@ -422,36 +423,75 @@
     }
 
     function finishSync(files) {
+        // Sort entire list by createdTime (Newest First) just in case folders mixed it up
+        files.sort(function(a, b) {
+            return new Date(b.created) - new Date(a.created);
+        });
+
         getAllDocs(function(cached) {
             var cacheMap = {};
             cached.forEach(function(c) { cacheMap[c.id] = c; });
 
             playlist = files.map(function(f) {
                 var c = cacheMap[f.id];
+                // SMART SYNC: Check if file is already cached AND not modified
+                var isCached = c && c.text;
+                var isModified = c && c.meta && c.meta.modified !== f.modified;
+                
+                var status = 'pending';
+                if (isCached && !isModified) {
+                    status = 'cached';
+                }
+                
                 return {
                     id: f.id,
                     name: f.name,
                     folder: f.folder,
-                    status: c && c.text ? 'cached' : 'pending',
-                    text: c ? c.text : null
+                    modified: f.modified, // Store modified time to compare later
+                    status: status,
+                    text: isCached ? c.text : null
                 };
             });
 
             localStorage.setItem('playlist', JSON.stringify(playlist.map(function(p) {
-                return {id: p.id, name: p.name, folder: p.folder, status: p.status};
+                return {id: p.id, name: p.name, folder: p.folder, status: p.status, modified: p.modified};
             })));
 
             renderPlaylist();
             syncDot.className = 'sync-dot synced';
             syncText.textContent = playlist.length + ' docs';
             refreshBtn.classList.remove('spinning');
-            downloadNext(0);
+            
+            // Start downloading pending items (updates or new files)
+            processDownloads();
         });
     }
 
-    function downloadNext(i) {
-        if (i >= playlist.length) return;
-        if (playlist[i].status !== 'pending') { downloadNext(i + 1); return; }
+    // Replaced recursive downloadNext with iterative processDownloads
+    function processDownloads() {
+        var pendingCount = 0;
+        // Count how many are pending to show user
+        for(var j=0; j<playlist.length; j++) {
+            if(playlist[j].status === 'pending') pendingCount++;
+        }
+        
+        if(pendingCount > 0) {
+            showToast('Downloading ' + pendingCount + ' new/updated items...', 'info');
+            downloadNextItem();
+        }
+    }
+
+    function downloadNextItem() {
+        // Find next pending item
+        var i = -1;
+        for(var j=0; j<playlist.length; j++) {
+            if(playlist[j].status === 'pending') {
+                i = j;
+                break;
+            }
+        }
+
+        if (i === -1) return; // Done
 
         playlist[i].status = 'generating';
         renderPlaylist();
@@ -459,18 +499,23 @@
         gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'}).then(function(resp) {
             var text = resp.body;
             if (text && text.trim()) {
-                saveDoc(playlist[i].id, text, {name: playlist[i].name, folder: playlist[i].folder});
+                // Save with Modified Time metadata
+                saveDoc(playlist[i].id, text, {
+                    name: playlist[i].name, 
+                    folder: playlist[i].folder,
+                    modified: playlist[i].modified 
+                });
                 playlist[i].text = text;
                 playlist[i].status = 'cached';
             } else {
-                playlist[i].status = 'pending';
+                playlist[i].status = 'pending'; // Retry next time
             }
             renderPlaylist();
-            downloadNext(i + 1);
+            downloadNextItem(); // Loop
         }).catch(function() {
             playlist[i].status = 'pending';
             renderPlaylist();
-            downloadNext(i + 1);
+            downloadNextItem(); // Loop (skip failed one for now? No, retry next sync)
         });
     }
 
