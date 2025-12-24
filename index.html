@@ -101,6 +101,7 @@
         
         .settings-section-title {padding: 16px 20px 8px; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; font-weight: 600;}
         .settings-actions {padding: 0 20px 20px;}
+        .settings-info {padding: 0 20px 10px; font-size: 0.8rem; color: var(--text-dim);}
         
         .voice-list {display:flex; flex-direction: column;}
         .voice-item {padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; cursor: pointer;}
@@ -175,6 +176,7 @@
                     </div>
                 
                 <h4 class="settings-section-title">Storage</h4>
+                <div class="settings-info">Clearing documents sets the sync time to "now", ignoring older files.</div>
                 <div class="settings-actions">
                     <button id="clear-all-btn" class="danger-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -205,6 +207,7 @@
     var selectedVoiceId = localStorage.getItem('selectedVoice') || 'en-US-Neural2-J';
     var textChunks = []; 
     var currentChunkIdx = 0;
+    var lastSyncTime = localStorage.getItem('lastSyncTime');
 
     // Hardcoded Full Fallback Voices (No B)
     const BACKUP_VOICES = [
@@ -338,7 +341,6 @@
             headers: {'Authorization': 'Bearer ' + accessToken}
         }).then(function(r) { 
             if (r.status === 401) {
-                // Token expired.
                 localStorage.removeItem('token');
                 accessToken = null;
                 showToast('Session expired. Please sign in again.', 'info');
@@ -392,19 +394,25 @@
     // Sync
     function syncDrive() {
         syncDot.className = 'sync-dot syncing';
-        syncText.textContent = 'Scanning...'; // More accurate text
+        syncText.textContent = 'Scanning...';
         refreshBtn.classList.add('spinning');
 
         var files = [];
         var foldersDone = 0;
+        
+        // TIME FILTER: Only fetch files newer than our last clear/sync
+        var query = "trashed=false and mimeType='application/vnd.google-apps.document'";
+        if (lastSyncTime) {
+            query += " and createdTime > '" + lastSyncTime + "'";
+        }
 
         FOLDER_IDS.forEach(function(folderId) {
             gapi.client.drive.files.get({fileId: folderId, fields: 'name'}).then(function(folderResp) {
                 var folderName = folderResp.result.name;
                 gapi.client.drive.files.list({
-                    q: "'" + folderId + "' in parents and mimeType='application/vnd.google-apps.document' and trashed=false",
-                    fields: 'files(id,name,modifiedTime,createdTime)', // Added createdTime for sort
-                    orderBy: 'createdTime desc', // Sort Newest First
+                    q: "'" + folderId + "' in parents and " + query,
+                    fields: 'files(id,name,modifiedTime,createdTime)', 
+                    orderBy: 'createdTime desc', 
                     pageSize: 100
                 }).then(function(resp) {
                     (resp.result.files || []).forEach(function(f) {
@@ -422,9 +430,9 @@
         });
     }
 
-    function finishSync(files) {
-        // Sort entire list by createdTime (Newest First) just in case folders mixed it up
-        files.sort(function(a, b) {
+    function finishSync(newFiles) {
+        // Sort Newest First
+        newFiles.sort(function(a, b) {
             return new Date(b.created) - new Date(a.created);
         });
 
@@ -432,66 +440,54 @@
             var cacheMap = {};
             cached.forEach(function(c) { cacheMap[c.id] = c; });
 
-            playlist = files.map(function(f) {
-                var c = cacheMap[f.id];
-                // SMART SYNC: Check if file is already cached AND not modified
-                var isCached = c && c.text;
-                var isModified = c && c.meta && c.meta.modified !== f.modified;
-                
-                var status = 'pending';
-                if (isCached && !isModified) {
-                    status = 'cached';
-                }
-                
-                return {
-                    id: f.id,
-                    name: f.name,
-                    folder: f.folder,
-                    modified: f.modified, // Store modified time to compare later
-                    status: status,
-                    text: isCached ? c.text : null
-                };
-            });
+            // Merge: Keep existing playlist items, prepend NEW items
+            var existingIds = new Set(playlist.map(function(p) { return p.id; }));
+            var addedCount = 0;
 
-            localStorage.setItem('playlist', JSON.stringify(playlist.map(function(p) {
-                return {id: p.id, name: p.name, folder: p.folder, status: p.status, modified: p.modified};
-            })));
+            // Prepend new files to playlist
+            for (var i = newFiles.length - 1; i >= 0; i--) {
+                var f = newFiles[i];
+                if (!existingIds.has(f.id)) {
+                    playlist.unshift({
+                        id: f.id,
+                        name: f.name,
+                        folder: f.folder,
+                        modified: f.modified,
+                        status: 'pending', // Needs download
+                        text: null
+                    });
+                    addedCount++;
+                }
+            }
+
+            localStorage.setItem('playlist', JSON.stringify(playlist));
+            
+            // Only update sync time if we actually found something, OR if this was the first run
+            if (addedCount > 0 || !lastSyncTime) {
+                // Do not update time here, wait for next Clear. 
+                // Actually, standard behavior: update time so we don't fetch these again next reload.
+                // But we store them in 'playlist' so we won't lose them.
+                lastSyncTime = new Date().toISOString();
+                localStorage.setItem('lastSyncTime', lastSyncTime);
+            }
 
             renderPlaylist();
             syncDot.className = 'sync-dot synced';
             syncText.textContent = playlist.length + ' docs';
             refreshBtn.classList.remove('spinning');
             
-            // Start downloading pending items (updates or new files)
-            processDownloads();
+            // Auto-Download ONLY the single newest file if it's new
+            if (addedCount > 0 && playlist.length > 0) {
+                showToast('Found ' + addedCount + ' new docs', 'success');
+                downloadSingleItem(0); // Only download the top one automatically
+            } else if (playlist.length === 0) {
+                showToast('No new documents found', 'info');
+            }
         });
     }
 
-    // Replaced recursive downloadNext with iterative processDownloads
-    function processDownloads() {
-        var pendingCount = 0;
-        // Count how many are pending to show user
-        for(var j=0; j<playlist.length; j++) {
-            if(playlist[j].status === 'pending') pendingCount++;
-        }
-        
-        if(pendingCount > 0) {
-            showToast('Downloading ' + pendingCount + ' new/updated items...', 'info');
-            downloadNextItem();
-        }
-    }
-
-    function downloadNextItem() {
-        // Find next pending item
-        var i = -1;
-        for(var j=0; j<playlist.length; j++) {
-            if(playlist[j].status === 'pending') {
-                i = j;
-                break;
-            }
-        }
-
-        if (i === -1) return; // Done
+    function downloadSingleItem(i) {
+        if (!playlist[i] || playlist[i].status === 'cached') return;
 
         playlist[i].status = 'generating';
         renderPlaylist();
@@ -499,7 +495,6 @@
         gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'}).then(function(resp) {
             var text = resp.body;
             if (text && text.trim()) {
-                // Save with Modified Time metadata
                 saveDoc(playlist[i].id, text, {
                     name: playlist[i].name, 
                     folder: playlist[i].folder,
@@ -508,14 +503,12 @@
                 playlist[i].text = text;
                 playlist[i].status = 'cached';
             } else {
-                playlist[i].status = 'pending'; // Retry next time
+                playlist[i].status = 'pending';
             }
             renderPlaylist();
-            downloadNextItem(); // Loop
         }).catch(function() {
             playlist[i].status = 'pending';
             renderPlaylist();
-            downloadNextItem(); // Loop (skip failed one for now? No, retry next sync)
         });
     }
 
@@ -537,17 +530,21 @@
     }
 
     function clearAllDocuments() {
-        if (!confirm('Are you sure you want to clear all documents? This will remove them from the list and local storage.')) return;
+        if (!confirm('Clear list and ignore all old files? (Only new files created from now on will appear)')) return;
         
         stopAudio();
         playlist = [];
         localStorage.removeItem('playlist');
         
+        // Key Fix: Set the time barrier to NOW
+        lastSyncTime = new Date().toISOString();
+        localStorage.setItem('lastSyncTime', lastSyncTime);
+        
         var tx = db.transaction('docs', 'readwrite');
         tx.objectStore('docs').clear();
         
         renderPlaylist();
-        showToast('All documents cleared', 'success');
+        showToast('Cleared. Only NEW files will appear now.', 'success');
         settingsModal.classList.remove('visible');
         syncDot.className = 'sync-dot';
         syncText.textContent = 'Offline';
@@ -570,11 +567,15 @@
             var p = playlist[i];
             var active = i === currentTrackIndex;
             var playing = active && isPlaying;
+            
+            var statusLabel = p.status;
+            if (p.status === 'pending') statusLabel = 'cloud'; 
+            
             html += '<div class="track' + (active ? ' active' : '') + (playing ? ' playing' : '') + '" data-i="' + i + '">';
             html += '<div class="track-number"><span>' + (i+1) + '</span><div class="track-equalizer"><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div></div></div>';
             html += '<div class="track-info"><div class="track-title">' + esc(p.name) + '</div>';
             html += '<div class="track-meta"><span class="track-folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>' + esc(p.folder) + '</span>';
-            html += '<span class="status-badge ' + p.status + '">' + p.status + '</span></div></div>';
+            html += '<span class="status-badge ' + p.status + '">' + statusLabel + '</span></div></div>';
             html += '<button class="track-delete-btn" data-i="' + i + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>';
             html += '</div>';
         }
@@ -584,7 +585,18 @@
         for (var t = 0; t < tracks.length; t++) {
             tracks[t].onclick = function(e) {
                 if (e.target.closest('.track-delete-btn')) return;
-                play(parseInt(this.getAttribute('data-i')));
+                var idx = parseInt(this.getAttribute('data-i'));
+                // Click to download & play logic
+                if (playlist[idx].status === 'pending') {
+                    downloadSingleItem(idx);
+                    // Optionally auto-play after download? For now, download first.
+                    // To auto-play we'd need to chain the promise.
+                    // Ideally, just triggering downloadSingleItem updates status to 'generating', 
+                    // then 'cached'. User can click again or we can wait.
+                    // Simple UX: Just download.
+                } else {
+                    play(idx);
+                }
             };
         }
         var delBtns = playlistEl.querySelectorAll('.track-delete-btn');
@@ -730,6 +742,7 @@
         var p = playlist[i];
 
         if (!p.text) {
+            // Auto-fetch if user clicks play on a pending item
             showToast('Downloading doc...', 'info');
             gapi.client.drive.files.export({fileId: p.id, mimeType: 'text/plain'}).then(function(resp) {
                 p.text = resp.body;
