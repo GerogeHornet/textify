@@ -189,12 +189,14 @@
     var textChunks = []; 
     var currentChunkIdx = 0;
 
-    // Hardcoded Fallback Voices (If API fetch fails)
+    // Hardcoded Full Fallback Voices (skipping B, as it doesn't exist)
     const BACKUP_VOICES = [
         { name: 'en-US-Neural2-A', ssmlGender: 'MALE' },
         { name: 'en-US-Neural2-C', ssmlGender: 'FEMALE' },
         { name: 'en-US-Neural2-D', ssmlGender: 'MALE' },
+        { name: 'en-US-Neural2-E', ssmlGender: 'FEMALE' },
         { name: 'en-US-Neural2-F', ssmlGender: 'FEMALE' },
+        { name: 'en-US-Neural2-G', ssmlGender: 'FEMALE' },
         { name: 'en-US-Neural2-H', ssmlGender: 'FEMALE' },
         { name: 'en-US-Neural2-I', ssmlGender: 'MALE' },
         { name: 'en-US-Neural2-J', ssmlGender: 'MALE' }
