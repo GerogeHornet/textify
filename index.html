@@ -33,8 +33,7 @@
         .auth-icon{width:80px;height:80px;margin-bottom:24px;color:var(--accent)}
         .auth-title{font-family:var(--serif);font-size:1.75rem;font-style:italic;margin-bottom:12px}
         .auth-desc{color:var(--text-muted);font-size:0.95rem;max-width:320px;margin-bottom:32px}
-        .auth-btn{display:flex;align-items:center;gap:12px;padding:16px 32px;background:var(--text);color:var(--bg);border:none;border-radius:var(--radius);font-family:var(--sans);font-size:1rem;font-weight:500;cursor:pointer; opacity: 1; transition: opacity 0.3s;}
-        .auth-btn:disabled{opacity: 0.5; cursor: not-allowed;}
+        .auth-btn{display:flex;align-items:center;gap:12px;padding:16px 32px;background:var(--text);color:var(--bg);border:none;border-radius:var(--radius);font-family:var(--sans);font-size:1rem;font-weight:500;cursor:pointer}
         .auth-btn svg{width:24px;height:24px}
         .content{flex:1;display:none;flex-direction:column;overflow:hidden}
         .content.visible{display:flex}
@@ -126,9 +125,9 @@
                 <svg class="auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
                 <h2 class="auth-title">Connect Google Drive</h2>
                 <p class="auth-desc">Sign in to sync your documents and listen to them with Google Neural2 Voices.</p>
-                <button class="auth-btn" id="auth-btn" disabled>
+                <button class="auth-btn" id="auth-btn">
                     <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                    <span>Loading...</span>
+                    Sign in with Google
                 </button>
             </div>
             <div class="content" id="content">
@@ -174,7 +173,7 @@
     <script>
     // Config
     var CLIENT_ID = '959875839996-h7cogpr60gugmqco9f9i5ehkjr0hq569.apps.googleusercontent.com';
-    var API_KEY = 'AIzaSyAnVs_XeFfmrJpx_oNNdhk4apBPnWO3hHE';
+    var API_KEY = 'AIzaSyAnVs_XeFfmrJpx_oNNdhk4apBPnWO3hHE'; // Your Cloud TTS API Key
     var ALLOWED_USER = 'briandigate';
     var FOLDER_IDS = ['1YEj74qrmNYMZcQ90l_6wlq6c6DDk4YbR','1kc57wQ2rCLI4yKOK7h2pbhS1XMUFGs9y','1kedNH3hNJUh6frA1iN2xoXc5g--FNvZs'];
     var SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
@@ -184,7 +183,7 @@
     var playlist = [], currentTrackIndex = -1, isPlaying = false;
     var playbackSpeed = 1, speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
     var db, deletedIds = new Set();
-    var audio = new Audio(); // HTML5 Audio element
+    var audio = new Audio(); // HTML5 Audio for Google Cloud TTS
     var selectedVoiceId = localStorage.getItem('selectedVoice') || 'en-US-Neural2-J';
     var textChunks = []; 
     var currentChunkIdx = 0;
@@ -261,7 +260,7 @@
         localStorage.setItem('deleted', JSON.stringify(Array.from(deletedIds)));
     }
 
-    // Google Auth
+    // --- WORKING SIGN IN LOGIC (From your snippet) ---
     function initGoogleAPI() {
         gapi.load('client', function() {
             gapi.client.init({
@@ -269,7 +268,7 @@
                 discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
             }).then(function() {
                 gapiInited = true;
-                checkInitState();
+                checkStoredToken();
             });
         });
         tokenClient = google.accounts.oauth2.initTokenClient({
@@ -278,16 +277,6 @@
             callback: onAuthResponse
         });
         gisInited = true;
-        checkInitState();
-    }
-
-    function checkInitState() {
-        if (gapiInited && gisInited) {
-            // Libraries loaded, enable button
-            authBtn.disabled = false;
-            authBtn.querySelector('span').textContent = 'Sign in with Google';
-            checkStoredToken();
-        }
     }
 
     function checkStoredToken() {
@@ -302,18 +291,7 @@
     function verifyUser() {
         fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: {'Authorization': 'Bearer ' + accessToken}
-        }).then(function(r) { 
-            if (r.status === 401) {
-                // Token expired. Don't sign out violently, just let user re-click.
-                // We clear token so next click triggers new flow.
-                localStorage.removeItem('token');
-                accessToken = null;
-                showToast('Session expired. Please sign in again.', 'info');
-                return null; 
-            }
-            return r.json(); 
-        }).then(function(user) {
-            if (!user) return; // Handled above
+        }).then(function(r) { return r.json(); }).then(function(user) {
             if (user.email && user.email.split('@')[0].toLowerCase() === ALLOWED_USER) {
                 showContent();
                 syncDrive();
@@ -322,7 +300,6 @@
                 signOut();
             }
         }).catch(function() {
-            // Network error or other
             localStorage.removeItem('token');
             accessToken = null;
         });
@@ -336,10 +313,7 @@
     }
 
     function signIn() {
-        if (gapiInited && gisInited) {
-            // prompt: '' (default) allows immediate sign-in if previously authorized
-            tokenClient.requestAccessToken({}); 
-        }
+        if (gapiInited && gisInited) tokenClient.requestAccessToken({prompt: 'consent'});
     }
 
     function signOut() {
@@ -519,8 +493,9 @@
         if (playlist.length === 0) player.classList.add('hidden');
     }
 
-    // --- GOOGLE CLOUD TTS LOGIC ---
+    // --- GOOGLE CLOUD TTS LOGIC (Merged back in) ---
 
+    // 1. Fetch available voices (Neural2 only)
     async function fetchVoices() {
         const url = `https://texttospeech.googleapis.com/v1/voices?key=${API_KEY}&languageCode=en-US`;
         try {
@@ -534,6 +509,7 @@
         }
     }
 
+    // 2. Render Settings Menu
     function renderVoiceList(voices) {
         let html = '';
         voices.forEach(v => {
@@ -577,6 +553,7 @@
         }
     }
 
+    // 3. Synthesize Text (Single Chunk)
     async function synthesizeText(text, voiceId) {
         const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${API_KEY}`;
         const payload = {
@@ -601,6 +578,7 @@
         }
     }
 
+    // 4. Chunking Logic (Google API limit is ~5000 bytes)
     function chunkText(text) {
         const limit = 4500; // Safety margin below 5000
         const chunks = [];
@@ -608,6 +586,7 @@
         
         while (index < text.length) {
             let endIndex = Math.min(index + limit, text.length);
+            // Try to split at a period or space to not cut words
             if (endIndex < text.length) {
                 const lastPeriod = text.lastIndexOf('.', endIndex);
                 const lastSpace = text.lastIndexOf(' ', endIndex);
@@ -620,9 +599,11 @@
         return chunks;
     }
 
+    // 5. Main Playback Logic
     async function play(i) {
         if (i < 0 || i >= playlist.length) return;
         
+        // If track changed, stop current
         if (currentTrackIndex !== i) {
             stopAudio();
             currentTrackIndex = i;
@@ -630,6 +611,7 @@
 
         var p = playlist[i];
 
+        // Ensure text is loaded
         if (!p.text) {
             showToast('Downloading doc...', 'info');
             gapi.client.drive.files.export({fileId: p.id, mimeType: 'text/plain'}).then(function(resp) {
@@ -637,17 +619,18 @@
                 p.status = 'cached';
                 saveDoc(p.id, p.text, {name: p.name, folder: p.folder});
                 renderPlaylist();
-                play(i); 
+                play(i); // Recursive retry
             }).catch(function() { showToast('Failed to load', 'error'); });
             return;
         }
 
+        // Initialize Chunking
         if (textChunks.length === 0) {
             textChunks = chunkText(p.text);
             currentChunkIdx = 0;
             playerTitle.textContent = p.name;
             playerPosition.textContent = (i + 1) + ' / ' + playlist.length;
-            totalTimeEl.textContent = "~" + Math.ceil(p.text.length / 1000) + " min"; 
+            totalTimeEl.textContent = "~" + Math.ceil(p.text.length / 1000) + " min"; // rough estimate
         }
 
         playNextChunk();
@@ -655,8 +638,9 @@
 
     async function playNextChunk() {
         if (currentChunkIdx >= textChunks.length) {
+            // Document finished
             if (currentTrackIndex < playlist.length - 1) {
-                textChunks = []; 
+                textChunks = []; // Reset for next doc
                 play(currentTrackIndex + 1);
             } else {
                 stopAudio();
@@ -665,6 +649,7 @@
             return;
         }
 
+        // Only show toast on first chunk to avoid spamming
         if (currentChunkIdx === 0) showToast('Generating Audio...', 'info');
 
         const audioContent = await synthesizeText(textChunks[currentChunkIdx], selectedVoiceId);
@@ -678,6 +663,7 @@
         }
     }
 
+    // Audio Event Listeners
     audio.onended = function() {
         currentChunkIdx++;
         playNextChunk();
@@ -711,6 +697,7 @@
             audio.pause();
             isPlaying = false;
         } else {
+            // case where audio object exists but src might be empty or track finished
             play(currentTrackIndex);
         }
         updateUI();
@@ -741,6 +728,7 @@
 
     // Helper
     function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function formatTime(s) { if (!s || isNaN(s)) return '0:00'; var m = Math.floor(s/60), sec = Math.floor(s%60); return m + ':' + (sec < 10 ? '0' : '') + sec; }
     function showToast(msg, type) { toast.textContent = msg; toast.className = 'toast ' + (type || '') + ' show'; setTimeout(function() { toast.classList.remove('show'); }, 3000); }
 
     // Events Setup
@@ -750,10 +738,11 @@
         playPauseBtn.onclick = togglePlay;
         document.getElementById('prev-btn').onclick = prevTrack;
         document.getElementById('next-btn').onclick = nextTrack;
-        document.getElementById('rewind-btn').onclick = function() { audio.currentTime -= 10; }; 
-        document.getElementById('forward-btn').onclick = function() { audio.currentTime += 10; }; 
+        document.getElementById('rewind-btn').onclick = function() { audio.currentTime -= 10; }; // Rewind 10s
+        document.getElementById('forward-btn').onclick = function() { audio.currentTime += 10; }; // Forward 10s
         speedBtn.onclick = cycleSpeed;
         
+        // Settings UI
         settingsBtn.onclick = function() { settingsModal.classList.add('visible'); };
         closeSettingsBtn.onclick = function() { settingsModal.classList.remove('visible'); };
         settingsModal.onclick = function(e) { if(e.target === settingsModal) settingsModal.classList.remove('visible'); };
