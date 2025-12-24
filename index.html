@@ -98,6 +98,10 @@
         .modal-title {font-family: var(--serif); font-size: 1.25rem;}
         .modal-close {background:none; border:none; color:var(--text-muted); cursor:pointer;}
         .modal-content {padding: 0; overflow-y: auto; flex: 1;}
+        
+        .settings-section-title {padding: 16px 20px 8px; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; font-weight: 600;}
+        .settings-actions {padding: 0 20px 20px;}
+        
         .voice-list {display:flex; flex-direction: column;}
         .voice-item {padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; cursor: pointer;}
         .voice-item:hover {background: var(--surface-hover);}
@@ -109,6 +113,10 @@
         .voice-tag {font-size: 0.75rem; color: var(--text-muted);}
         .voice-preview-btn {width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer;}
         .voice-preview-btn:hover {background: var(--text); color: var(--bg);}
+
+        .danger-btn {width: 100%; padding: 12px; border-radius: var(--radius); border: 1px solid var(--error); background: rgba(248,113,113,0.1); color: var(--error); font-weight: 500; font-family: var(--sans); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;}
+        .danger-btn:hover {background: var(--error); color: var(--bg);}
+        .danger-btn svg {width: 18px; height: 18px;}
     </style>
 </head>
 <body>
@@ -158,12 +166,21 @@
     <div class="modal-overlay" id="settings-modal">
         <div class="modal">
             <div class="modal-header">
-                <h3 class="modal-title">Select Voice</h3>
+                <h3 class="modal-title">Settings</h3>
                 <button class="modal-close" id="close-settings"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-content">
+                <h4 class="settings-section-title">Voice</h4>
                 <div class="voice-list" id="voice-list">
                     </div>
+                
+                <h4 class="settings-section-title">Storage</h4>
+                <div class="settings-actions">
+                    <button id="clear-all-btn" class="danger-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        Clear All Documents
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -189,7 +206,7 @@
     var textChunks = []; 
     var currentChunkIdx = 0;
 
-    // Hardcoded Full Fallback Voices (skipping B, as it doesn't exist)
+    // Hardcoded Full Fallback Voices (No B)
     const BACKUP_VOICES = [
         { name: 'en-US-Neural2-A', ssmlGender: 'MALE' },
         { name: 'en-US-Neural2-C', ssmlGender: 'FEMALE' },
@@ -213,6 +230,7 @@
     var settingsModal = document.getElementById('settings-modal');
     var closeSettingsBtn = document.getElementById('close-settings');
     var voiceListEl = document.getElementById('voice-list');
+    var clearAllBtn = document.getElementById('clear-all-btn');
     var playlistEl = document.getElementById('playlist');
     var playlistEmpty = document.getElementById('playlist-empty');
     var playlistCount = document.getElementById('playlist-count');
@@ -473,12 +491,30 @@
         }
     }
 
+    function clearAllDocuments() {
+        if (!confirm('Are you sure you want to clear all documents? This will remove them from the list and local storage.')) return;
+        
+        stopAudio();
+        playlist = [];
+        localStorage.removeItem('playlist');
+        
+        var tx = db.transaction('docs', 'readwrite');
+        tx.objectStore('docs').clear();
+        
+        renderPlaylist();
+        showToast('All documents cleared', 'success');
+        settingsModal.classList.remove('visible');
+        syncDot.className = 'sync-dot';
+        syncText.textContent = 'Offline';
+    }
+
     // Render
     function renderPlaylist() {
         if (playlist.length === 0) {
             playlistEmpty.style.display = 'block';
             playlistEl.innerHTML = '';
             playlistCount.textContent = '0 documents';
+            player.classList.add('hidden');
             return;
         }
         playlistEmpty.style.display = 'none';
@@ -773,6 +809,8 @@
         settingsBtn.onclick = function() { settingsModal.classList.add('visible'); };
         closeSettingsBtn.onclick = function() { settingsModal.classList.remove('visible'); };
         settingsModal.onclick = function(e) { if(e.target === settingsModal) settingsModal.classList.remove('visible'); };
+        
+        clearAllBtn.onclick = clearAllDocuments;
     }
 
     init();
