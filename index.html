@@ -33,7 +33,8 @@
         .auth-icon{width:80px;height:80px;margin-bottom:24px;color:var(--accent)}
         .auth-title{font-family:var(--serif);font-size:1.75rem;font-style:italic;margin-bottom:12px}
         .auth-desc{color:var(--text-muted);font-size:0.95rem;max-width:320px;margin-bottom:32px}
-        .auth-btn{display:flex;align-items:center;gap:12px;padding:16px 32px;background:var(--text);color:var(--bg);border:none;border-radius:var(--radius);font-family:var(--sans);font-size:1rem;font-weight:500;cursor:pointer}
+        .auth-btn{display:flex;align-items:center;gap:12px;padding:16px 32px;background:var(--text);color:var(--bg);border:none;border-radius:var(--radius);font-family:var(--sans);font-size:1rem;font-weight:500;cursor:pointer; opacity: 1; transition: opacity 0.3s;}
+        .auth-btn:disabled{opacity: 0.5; cursor: not-allowed;}
         .auth-btn svg{width:24px;height:24px}
         .content{flex:1;display:none;flex-direction:column;overflow:hidden}
         .content.visible{display:flex}
@@ -69,7 +70,7 @@
         .status-badge.pending{background:rgba(136,136,136,0.15);color:var(--text-muted)}
         .track-delete-btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(248,113,113,0.15);color:var(--error);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
         .track-delete-btn svg{width:18px;height:18px}
-        .player{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(to top,var(--bg) 80%,transparent);padding:20px 24px 32px;padding-bottom:max(32px,env(safe-area-inset-bottom))}
+        .player{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(to top,var(--bg) 80%,transparent);padding:20px 24px 32px;padding-bottom:max(32px,env(safe-area-inset-bottom)); z-index: 200;}
         .player.hidden{display:none}
         .player-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:0 -8px 32px rgba(0,0,0,0.4)}
         .player-track-info{display:flex;align-items:center;gap:12px;margin-bottom:16px}
@@ -88,6 +89,26 @@
         .toast{position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(-100px);padding:14px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.9rem;opacity:0;transition:all 0.3s;z-index:300}
         .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
         .toast.error{border-color:var(--error)}.toast.success{border-color:var(--success)}
+
+        /* Settings Modal */
+        .modal-overlay {position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:900; display:none; align-items:center; justify-content:center;}
+        .modal-overlay.visible {display:flex;}
+        .modal {background:var(--bg); border:1px solid var(--border); width: 90%; max-width: 500px; max-height: 80vh; border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden;}
+        .modal-header {padding: 16px 20px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center;}
+        .modal-title {font-family: var(--serif); font-size: 1.25rem;}
+        .modal-close {background:none; border:none; color:var(--text-muted); cursor:pointer;}
+        .modal-content {padding: 0; overflow-y: auto; flex: 1;}
+        .voice-list {display:flex; flex-direction: column;}
+        .voice-item {padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; cursor: pointer;}
+        .voice-item:hover {background: var(--surface-hover);}
+        .voice-item.selected {background: var(--accent-bg);}
+        .voice-item.selected .voice-name {color: var(--accent);}
+        .voice-radio {accent-color: var(--accent);}
+        .voice-details {flex:1;}
+        .voice-name {font-weight: 500; font-size: 0.95rem;}
+        .voice-tag {font-size: 0.75rem; color: var(--text-muted);}
+        .voice-preview-btn {width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer;}
+        .voice-preview-btn:hover {background: var(--text); color: var(--bg);}
     </style>
 </head>
 <body>
@@ -96,6 +117,7 @@
             <h1 class="logo">Textify<span>.</span></h1>
             <div class="header-actions">
                 <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-text">Offline</span></div>
+                <button class="icon-btn" id="settings-btn" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
                 <button class="icon-btn" id="refresh-btn" title="Sync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></button>
             </div>
         </header>
@@ -103,10 +125,10 @@
             <div class="auth-screen" id="auth-screen">
                 <svg class="auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
                 <h2 class="auth-title">Connect Google Drive</h2>
-                <p class="auth-desc">Sign in to sync your documents and listen to them as audio.</p>
-                <button class="auth-btn" id="auth-btn">
+                <p class="auth-desc">Sign in to sync your documents and listen to them with Google Neural2 Voices.</p>
+                <button class="auth-btn" id="auth-btn" disabled>
                     <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                    Sign in with Google
+                    <span>Loading...</span>
                 </button>
             </div>
             <div class="content" id="content">
@@ -132,13 +154,27 @@
             </div>
         </div>
     </div>
+
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Select Voice</h3>
+                <button class="modal-close" id="close-settings"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-content">
+                <div class="voice-list" id="voice-list">
+                    </div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
     <script>
     // Config
     var CLIENT_ID = '959875839996-h7cogpr60gugmqco9f9i5ehkjr0hq569.apps.googleusercontent.com';
-    var API_KEY = 'AIzaSyCQ1_Y6-w_lOzjRUMN2lxRFuZfT4y-9ICg';
+    var API_KEY = 'AIzaSyCQ1_Y6-w_lOzjRUMN2lxRFuZfT4y-9ICg'; // WORKING KEY
     var ALLOWED_USER = 'briandigate';
     var FOLDER_IDS = ['1YEj74qrmNYMZcQ90l_6wlq6c6DDk4YbR','1kc57wQ2rCLI4yKOK7h2pbhS1XMUFGs9y','1kedNH3hNJUh6frA1iN2xoXc5g--FNvZs'];
     var SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
@@ -148,6 +184,10 @@
     var playlist = [], currentTrackIndex = -1, isPlaying = false;
     var playbackSpeed = 1, speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
     var db, deletedIds = new Set();
+    var audio = new Audio(); // HTML5 Audio for Google Cloud TTS
+    var selectedVoiceId = localStorage.getItem('selectedVoice') || 'en-US-Neural2-J';
+    var textChunks = []; 
+    var currentChunkIdx = 0;
 
     // DOM
     var authScreen = document.getElementById('auth-screen');
@@ -156,6 +196,10 @@
     var syncDot = document.getElementById('sync-dot');
     var syncText = document.getElementById('sync-text');
     var refreshBtn = document.getElementById('refresh-btn');
+    var settingsBtn = document.getElementById('settings-btn');
+    var settingsModal = document.getElementById('settings-modal');
+    var closeSettingsBtn = document.getElementById('close-settings');
+    var voiceListEl = document.getElementById('voice-list');
     var playlistEl = document.getElementById('playlist');
     var playlistEmpty = document.getElementById('playlist-empty');
     var playlistCount = document.getElementById('playlist-count');
@@ -178,8 +222,7 @@
             loadCachedPlaylist();
             initGoogleAPI();
             setupEvents();
-            // Preload voices
-            speechSynthesis.getVoices();
+            fetchVoices(); 
         });
     }
 
@@ -196,12 +239,6 @@
     function saveDoc(id, text, meta) {
         var tx = db.transaction('docs', 'readwrite');
         tx.objectStore('docs').put({id: id, text: text, meta: meta});
-    }
-
-    function getDoc(id, callback) {
-        var tx = db.transaction('docs', 'readonly');
-        var req = tx.objectStore('docs').get(id);
-        req.onsuccess = function() { callback(req.result); };
     }
 
     function getAllDocs(callback) {
@@ -224,7 +261,7 @@
         localStorage.setItem('deleted', JSON.stringify(Array.from(deletedIds)));
     }
 
-    // Google Auth
+    // Google Auth - ROBUST VERSION
     function initGoogleAPI() {
         gapi.load('client', function() {
             gapi.client.init({
@@ -232,7 +269,11 @@
                 discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
             }).then(function() {
                 gapiInited = true;
-                checkStoredToken();
+                checkInitState();
+            }).catch(function(err) {
+                console.error("GAPI Init Error:", err);
+                authBtn.querySelector('span').textContent = 'API Error (Check Console)';
+                showToast("Google API Error: " + (err.error?.message || "Unknown"), 'error');
             });
         });
         tokenClient = google.accounts.oauth2.initTokenClient({
@@ -241,6 +282,15 @@
             callback: onAuthResponse
         });
         gisInited = true;
+        checkInitState();
+    }
+
+    function checkInitState() {
+        if (gapiInited && gisInited) {
+            authBtn.disabled = false;
+            authBtn.querySelector('span').textContent = 'Sign in with Google';
+            checkStoredToken();
+        }
     }
 
     function checkStoredToken() {
@@ -255,7 +305,17 @@
     function verifyUser() {
         fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: {'Authorization': 'Bearer ' + accessToken}
-        }).then(function(r) { return r.json(); }).then(function(user) {
+        }).then(function(r) { 
+            if (r.status === 401) {
+                // Token expired.
+                localStorage.removeItem('token');
+                accessToken = null;
+                showToast('Session expired. Please sign in again.', 'info');
+                return null; 
+            }
+            return r.json(); 
+        }).then(function(user) {
+            if (!user) return; 
             if (user.email && user.email.split('@')[0].toLowerCase() === ALLOWED_USER) {
                 showContent();
                 syncDrive();
@@ -277,7 +337,10 @@
     }
 
     function signIn() {
-        if (gapiInited && gisInited) tokenClient.requestAccessToken({prompt: 'consent'});
+        if (gapiInited && gisInited) {
+            // No prompt forces re-auth unless necessary
+            tokenClient.requestAccessToken({}); 
+        }
     }
 
     function signOut() {
@@ -352,8 +415,6 @@
             syncDot.className = 'sync-dot synced';
             syncText.textContent = playlist.length + ' docs';
             refreshBtn.classList.remove('spinning');
-
-            // Download pending
             downloadNext(0);
         });
     }
@@ -426,7 +487,6 @@
         }
         playlistEl.innerHTML = html;
 
-        // Events
         var tracks = playlistEl.querySelectorAll('.track');
         for (var t = 0; t < tracks.length; t++) {
             tracks[t].onclick = function(e) {
@@ -448,7 +508,7 @@
     function deleteTrack(i) {
         var p = playlist[i];
         if (!p) return;
-        if (currentTrackIndex === i) { stopSpeech(); currentTrackIndex = -1; }
+        if (currentTrackIndex === i) { stopAudio(); currentTrackIndex = -1; }
         else if (currentTrackIndex > i) currentTrackIndex--;
         deleteDoc(p.id);
         deletedIds.add(p.id);
@@ -460,76 +520,181 @@
         if (playlist.length === 0) player.classList.add('hidden');
     }
 
-    // Playback
-    function play(i) {
+    // --- GOOGLE CLOUD TTS LOGIC ---
+
+    async function fetchVoices() {
+        const url = `https://texttospeech.googleapis.com/v1/voices?key=${API_KEY}&languageCode=en-US`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            const voices = data.voices.filter(v => v.name.includes('Neural2')); 
+            renderVoiceList(voices);
+        } catch (e) {
+            console.error('Failed to fetch voices', e);
+        }
+    }
+
+    function renderVoiceList(voices) {
+        let html = '';
+        voices.forEach(v => {
+            const isSelected = v.name === selectedVoiceId;
+            html += `<div class="voice-item ${isSelected ? 'selected' : ''}" onclick="selectVoice('${v.name}')">
+                <input type="radio" name="voice" class="voice-radio" ${isSelected ? 'checked' : ''}>
+                <div class="voice-details">
+                    <div class="voice-name">${v.name.replace('en-US-Neural2-', 'Neural ')} (${v.ssmlGender})</div>
+                    <div class="voice-tag">English (US)</div>
+                </div>
+                <button class="voice-preview-btn" onclick="previewVoice(event, '${v.name}')" title="Preview">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+            </div>`;
+        });
+        voiceListEl.innerHTML = html;
+    }
+
+    function selectVoice(id) {
+        selectedVoiceId = id;
+        localStorage.setItem('selectedVoice', id);
+        document.querySelectorAll('.voice-item').forEach(el => {
+            if (el.innerHTML.includes(id)) {
+                el.classList.add('selected');
+                el.querySelector('input').checked = true;
+            } else {
+                el.classList.remove('selected');
+                el.querySelector('input').checked = false;
+            }
+        });
+    }
+
+    async function previewVoice(e, id) {
+        e.stopPropagation(); 
+        showToast('Previewing...', 'info');
+        const content = await synthesizeText("Hello. This is a preview of my voice.", id);
+        if (content) {
+            const tempAudio = new Audio("data:audio/mp3;base64," + content);
+            tempAudio.play();
+        }
+    }
+
+    async function synthesizeText(text, voiceId) {
+        const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${API_KEY}`;
+        const payload = {
+            input: { text: text },
+            voice: { languageCode: 'en-US', name: voiceId },
+            audioConfig: { audioEncoding: 'MP3' }
+        };
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+            return data.audioContent; 
+        } catch (e) {
+            console.error(e);
+            showToast('TTS Error: ' + e.message, 'error');
+            return null;
+        }
+    }
+
+    function chunkText(text) {
+        const limit = 4500; 
+        const chunks = [];
+        let index = 0;
+        
+        while (index < text.length) {
+            let endIndex = Math.min(index + limit, text.length);
+            if (endIndex < text.length) {
+                const lastPeriod = text.lastIndexOf('.', endIndex);
+                const lastSpace = text.lastIndexOf(' ', endIndex);
+                if (lastPeriod > index) endIndex = lastPeriod + 1;
+                else if (lastSpace > index) endIndex = lastSpace;
+            }
+            chunks.push(text.substring(index, endIndex));
+            index = endIndex;
+        }
+        return chunks;
+    }
+
+    async function play(i) {
         if (i < 0 || i >= playlist.length) return;
+        
+        if (currentTrackIndex !== i) {
+            stopAudio();
+            currentTrackIndex = i;
+        }
+
         var p = playlist[i];
 
         if (!p.text) {
-            showToast('Downloading...', 'info');
+            showToast('Downloading doc...', 'info');
             gapi.client.drive.files.export({fileId: p.id, mimeType: 'text/plain'}).then(function(resp) {
                 p.text = resp.body;
                 p.status = 'cached';
                 saveDoc(p.id, p.text, {name: p.name, folder: p.folder});
                 renderPlaylist();
-                startSpeech(i);
-            }).catch(function() {
-                showToast('Failed to load', 'error');
-            });
+                play(i); 
+            }).catch(function() { showToast('Failed to load', 'error'); });
             return;
         }
 
-        startSpeech(i);
-    }
-
-    function startSpeech(i) {
-        stopSpeech();
-        currentTrackIndex = i;
-        var p = playlist[i];
-        var text = p.text;
-
-        var utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = playbackSpeed;
-
-        // Pick voice
-        var voices = speechSynthesis.getVoices();
-        for (var v = 0; v < voices.length; v++) {
-            if (voices[v].lang.indexOf('en') === 0) {
-                utterance.voice = voices[v];
-                break;
-            }
+        if (textChunks.length === 0) {
+            textChunks = chunkText(p.text);
+            currentChunkIdx = 0;
+            playerTitle.textContent = p.name;
+            playerPosition.textContent = (i + 1) + ' / ' + playlist.length;
+            totalTimeEl.textContent = "~" + Math.ceil(p.text.length / 1000) + " min"; 
         }
 
-        utterance.onstart = function() {
-            isPlaying = true;
-            updateUI();
-        };
-
-        utterance.onend = function() {
-            if (currentTrackIndex < playlist.length - 1) {
-                play(currentTrackIndex + 1);
-            } else {
-                isPlaying = false;
-                updateUI();
-            }
-        };
-
-        utterance.onerror = function() {
-            isPlaying = false;
-            updateUI();
-        };
-
-        playerTitle.textContent = p.name;
-        playerPosition.textContent = (i + 1) + ' / ' + playlist.length;
-        var words = text.split(/\s+/).length;
-        totalTimeEl.textContent = formatTime((words / 150) * 60 / playbackSpeed);
-
-        speechSynthesis.speak(utterance);
+        playNextChunk();
     }
 
-    function stopSpeech() {
-        speechSynthesis.cancel();
+    async function playNextChunk() {
+        if (currentChunkIdx >= textChunks.length) {
+            if (currentTrackIndex < playlist.length - 1) {
+                textChunks = []; 
+                play(currentTrackIndex + 1);
+            } else {
+                stopAudio();
+                showToast('Playlist finished', 'success');
+            }
+            return;
+        }
+
+        if (currentChunkIdx === 0) showToast('Generating Audio...', 'info');
+
+        const audioContent = await synthesizeText(textChunks[currentChunkIdx], selectedVoiceId);
+        
+        if (audioContent) {
+            audio.src = "data:audio/mp3;base64," + audioContent;
+            audio.playbackRate = playbackSpeed;
+            audio.play();
+            isPlaying = true;
+            updateUI();
+        }
+    }
+
+    audio.onended = function() {
+        currentChunkIdx++;
+        playNextChunk();
+    };
+    
+    audio.onerror = function() {
+        showToast('Playback error', 'error');
         isPlaying = false;
+        updateUI();
+    };
+
+    function stopAudio() {
+        audio.pause();
+        audio.currentTime = 0;
+        isPlaying = false;
+        textChunks = [];
+        currentChunkIdx = 0;
+        updateUI();
     }
 
     function togglePlay() {
@@ -537,14 +702,13 @@
             if (playlist.length > 0) play(0);
             return;
         }
-        if (speechSynthesis.speaking) {
-            if (speechSynthesis.paused) {
-                speechSynthesis.resume();
-                isPlaying = true;
-            } else {
-                speechSynthesis.pause();
-                isPlaying = false;
-            }
+        
+        if (audio.paused && audio.src) {
+            audio.play();
+            isPlaying = true;
+        } else if (!audio.paused) {
+            audio.pause();
+            isPlaying = false;
         } else {
             play(currentTrackIndex);
         }
@@ -557,30 +721,39 @@
         renderPlaylist();
     }
 
-    function prevTrack() { if (currentTrackIndex > 0) play(currentTrackIndex - 1); }
-    function nextTrack() { if (currentTrackIndex < playlist.length - 1) play(currentTrackIndex + 1); }
+    function prevTrack() { 
+        stopAudio();
+        if (currentTrackIndex > 0) play(currentTrackIndex - 1); 
+    }
+    
+    function nextTrack() { 
+        stopAudio();
+        if (currentTrackIndex < playlist.length - 1) play(currentTrackIndex + 1); 
+    }
+    
     function cycleSpeed() {
         var idx = speeds.indexOf(playbackSpeed);
         playbackSpeed = speeds[(idx + 1) % speeds.length];
         speedBtn.textContent = playbackSpeed + 'x';
-        if (speechSynthesis.speaking) play(currentTrackIndex);
+        if (!audio.paused) audio.playbackRate = playbackSpeed;
     }
 
-    // Helpers
     function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-    function formatTime(s) { if (!s || isNaN(s)) return '0:00'; var m = Math.floor(s/60), sec = Math.floor(s%60); return m + ':' + (sec < 10 ? '0' : '') + sec; }
     function showToast(msg, type) { toast.textContent = msg; toast.className = 'toast ' + (type || '') + ' show'; setTimeout(function() { toast.classList.remove('show'); }, 3000); }
 
-    // Events
     function setupEvents() {
         authBtn.onclick = signIn;
         refreshBtn.onclick = syncDrive;
         playPauseBtn.onclick = togglePlay;
         document.getElementById('prev-btn').onclick = prevTrack;
         document.getElementById('next-btn').onclick = nextTrack;
-        document.getElementById('rewind-btn').onclick = function() { if (currentTrackIndex >= 0) play(currentTrackIndex); };
-        document.getElementById('forward-btn').onclick = nextTrack;
+        document.getElementById('rewind-btn').onclick = function() { audio.currentTime -= 10; }; 
+        document.getElementById('forward-btn').onclick = function() { audio.currentTime += 10; }; 
         speedBtn.onclick = cycleSpeed;
+        
+        settingsBtn.onclick = function() { settingsModal.classList.add('visible'); };
+        closeSettingsBtn.onclick = function() { settingsModal.classList.remove('visible'); };
+        settingsModal.onclick = function(e) { if(e.target === settingsModal) settingsModal.classList.remove('visible'); };
     }
 
     init();
