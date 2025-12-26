@@ -28,7 +28,7 @@
         @keyframes spin{to{transform:rotate(360deg)}}
         .icon-btn svg{width:20px;height:20px}
         .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-        .auth-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center}
+        .auth-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center; z-index: 50;}
         .auth-screen.hidden{display:none}
         .auth-icon{width:80px;height:80px;margin-bottom:24px;color:var(--accent)}
         .auth-title{font-family:var(--serif);font-size:1.75rem;font-style:italic;margin-bottom:12px}
@@ -341,9 +341,7 @@
             headers: {'Authorization': 'Bearer ' + accessToken}
         }).then(function(r) { 
             if (r.status === 401) {
-                // Token expired.
-                localStorage.removeItem('token');
-                accessToken = null;
+                signOut(); // Explicitly reset UI
                 showToast('Session expired. Please sign in again.', 'info');
                 return null; 
             }
@@ -382,7 +380,7 @@
         localStorage.removeItem('token');
         authScreen.classList.remove('hidden');
         content.classList.remove('visible');
-        player.classList.add('hidden');
+        player.classList.add('hidden'); // Ensure player hides
         syncDot.className = 'sync-dot';
         syncText.textContent = 'Offline';
     }
@@ -390,6 +388,7 @@
     function showContent() {
         authScreen.classList.add('hidden');
         content.classList.add('visible');
+        renderPlaylist(); // Re-check visibility
     }
 
     // Sync
@@ -612,7 +611,12 @@
             };
         }
 
-        if (playlist.length > 0) player.classList.remove('hidden');
+        // Logic fix: only show player if user is logged in (content visible) AND playlist has items
+        if (playlist.length > 0 && content.classList.contains('visible')) {
+            player.classList.remove('hidden');
+        } else {
+            player.classList.add('hidden');
+        }
     }
 
     function deleteTrack(i) {
@@ -747,7 +751,6 @@
         var p = playlist[i];
 
         if (!p.text) {
-            // Auto-fetch if user clicks play on a pending item
             showToast('Downloading doc...', 'info');
             gapi.client.drive.files.export({fileId: p.id, mimeType: 'text/plain'}).then(function(resp) {
                 p.text = resp.body;
