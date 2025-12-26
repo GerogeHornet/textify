@@ -193,9 +193,9 @@
                 <h4 class="settings-section-title">Storage</h4>
                 <div class="settings-info">Clearing documents sets the sync time to "now", ignoring older files.</div>
                 <div class="settings-actions">
-                    <button id="export-files-btn" class="action-btn primary">
+                    <button id="download-merged-btn" class="action-btn primary">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Export All as MP3 Files
+                        Download Playlist as Single MP3
                     </button>
                     <button id="clear-all-btn" class="danger-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -583,69 +583,91 @@
         renderPlaylist();
     }
 
-    // --- EXPORT TO FILE LOGIC ---
+    // --- MERGE AND DOWNLOAD ALL AUDIO LOGIC ---
 
-    async function exportAllDocsAsFiles() {
-        if (playlist.length === 0) return showToast('No documents to export', 'error');
+    async function downloadAllAsMergedMP3() {
+        if (playlist.length === 0) return showToast('No documents to download', 'error');
         
         settingsModal.classList.remove('visible'); 
         
-        if(!confirm("This will process " + playlist.length + " documents and download them as individual MP3 files. \n\nOn iOS, you may get a popup asking to 'View' or 'Download' for each file.")) return;
+        if(!confirm(`Merge ${playlist.length} documents into ONE single MP3 file?`)) return;
 
+        let allChunks = []; // This will hold Uint8Arrays of every audio chunk
+
+        // 1. Loop through all documents
         for (let i = 0; i < playlist.length; i++) {
-            showToast(`Exporting ${i + 1}/${playlist.length}: ${playlist[i].name}...`, 'info');
+            showToast(`Processing ${i + 1}/${playlist.length}: ${playlist[i].name}...`, 'info');
             
             try {
-                // 1. Get Text (Check cache or Fetch)
-                let text = playlist[i].text;
-                if (!text) {
-                    const resp = await gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'});
-                    text = resp.body;
-                    // Cache it for future use while we are at it
-                    playlist[i].text = text;
+                // Check if we already have the audio downloaded in DB to save API calls
+                const cachedDoc = await new Promise((resolve) => {
+                    const tx = db.transaction('docs', 'readonly');
+                    const req = tx.objectStore('docs').get(playlist[i].id);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+
+                let audioB64List = [];
+
+                if (cachedDoc && cachedDoc.audio && cachedDoc.audio.length > 0) {
+                    // Use Cached Audio
+                    audioB64List = cachedDoc.audio;
+                } else {
+                    // Not cached, need to fetch text and synthesize
+                    let text = playlist[i].text;
+                    if (!text) {
+                        const resp = await gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'});
+                        text = resp.body;
+                    }
+
+                    if (!text || !text.trim()) continue;
+                    
+                    // Synthesize
+                    const chunks = chunkText(text);
+                    for (let j = 0; j < chunks.length; j++) {
+                        const b64 = await synthesizeText(chunks[j], selectedVoiceId);
+                        if(b64) audioB64List.push(b64);
+                    }
+                    
+                    // Save to cache while we are at it
                     saveDoc(playlist[i].id, text, {
                         name: playlist[i].name, 
                         folder: playlist[i].folder, 
                         modified: playlist[i].modified 
-                    });
+                    }, audioB64List);
+                    playlist[i].status = 'downloaded';
                 }
 
-                if (!text || !text.trim()) continue;
-
-                // 2. Synthesize Audio (Get all chunks)
-                const chunks = chunkText(text);
-                const audioBlobs = [];
-                
-                for (let j = 0; j < chunks.length; j++) {
-                    const b64Data = await synthesizeText(chunks[j], selectedVoiceId);
-                    if (b64Data) {
-                        // Convert Base64 to binary
-                        const byteCharacters = atob(b64Data);
-                        const byteNumbers = new Array(byteCharacters.length);
-                        for (let k = 0; k < byteCharacters.length; k++) {
-                            byteNumbers[k] = byteCharacters.charCodeAt(k);
-                        }
-                        const byteArray = new Uint8Array(byteNumbers);
-                        audioBlobs.push(byteArray);
+                // Convert all Base64 chunks for this doc to Uint8Array and add to master list
+                for(let b64 of audioB64List) {
+                    const byteCharacters = atob(b64);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let k = 0; k < byteCharacters.length; k++) {
+                        byteNumbers[k] = byteCharacters.charCodeAt(k);
                     }
+                    allChunks.push(new Uint8Array(byteNumbers));
                 }
-
-                // 3. Create Blob and Download
-                if (audioBlobs.length > 0) {
-                    const fullBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
-                    triggerFileDownload(fullBlob, `${playlist[i].name}.mp3`);
-                }
-
-                // Small delay to prevent API/Browser choking
-                await new Promise(r => setTimeout(r, 1000));
+                
+                // Small delay to keep UI responsive
+                await new Promise(r => setTimeout(r, 100));
 
             } catch (err) {
-                console.error("Export failed for " + playlist[i].name, err);
-                // Continue to next file even if one fails
+                console.error("Error processing " + playlist[i].name, err);
+                // Continue to next file
             }
         }
-        showToast('All exports finished!', 'success');
-        renderPlaylist(); // Updates UI in case we fetched new text
+        
+        if (allChunks.length === 0) return showToast('No audio data generated', 'error');
+
+        showToast('Merging audio...', 'info');
+        
+        // 2. Create Single Blob
+        const finalBlob = new Blob(allChunks, { type: 'audio/mpeg' });
+        
+        // 3. Trigger Download
+        showToast('Download starting!', 'success');
+        renderPlaylist();
+        triggerFileDownload(finalBlob, `Textify_Playlist_${new Date().toISOString().slice(0,10)}.mp3`);
     }
 
     function triggerFileDownload(blob, filename) {
@@ -1054,8 +1076,10 @@
         settingsModal.onclick = function(e) { if(e.target === settingsModal) settingsModal.classList.remove('visible'); };
         
         clearAllBtn.onclick = clearAllDocuments;
-        // Updated Export Button Logic
-        document.getElementById('export-files-btn').onclick = exportAllDocsAsFiles;
+        
+        // Connect the new Merge Button
+        document.getElementById('download-merged-btn').onclick = downloadAllAsMergedMP3;
+        
         reauthToast.onclick = signIn; 
     }
 
