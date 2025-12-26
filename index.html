@@ -28,7 +28,7 @@
         @keyframes spin{to{transform:rotate(360deg)}}
         .icon-btn svg{width:20px;height:20px}
         .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-        .auth-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center}
+        .auth-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center; z-index: 50;}
         .auth-screen.hidden{display:none}
         .auth-icon{width:80px;height:80px;margin-bottom:24px;color:var(--accent)}
         .auth-title{font-family:var(--serif);font-size:1.75rem;font-style:italic;margin-bottom:12px}
@@ -64,8 +64,7 @@
         .track-folder{display:flex;align-items:center;gap:4px}
         .track-folder svg{width:14px;height:14px}
         .status-badge{padding:4px 8px;border-radius:4px;font-size:0.7rem;font-weight:500;text-transform:uppercase}
-        .status-badge.cached{background:rgba(74,222,128,0.15);color:var(--success)} /* Now means Text Cached */
-        .status-badge.downloaded{background:var(--accent-bg);color:var(--accent);} /* Audio Downloaded */
+        .status-badge.cached{background:rgba(74,222,128,0.15);color:var(--success)}
         .status-badge.generating{background:rgba(251,191,36,0.15);color:var(--warning)}
         .status-badge.new{background:rgba(232,255,71,0.15);color:var(--accent)}
         .status-badge.pending{background:rgba(136,136,136,0.15);color:var(--text-muted)}
@@ -285,7 +284,7 @@
     // IndexedDB
     function initDB() {
         return new Promise(function(resolve) {
-            var req = indexedDB.open('TextifyDB', 2); // Version 2 for audio storage
+            var req = indexedDB.open('TextifyDB', 2); 
             req.onupgradeneeded = function(e) { 
                 var db = e.target.result;
                 if(!db.objectStoreNames.contains('docs')) {
@@ -300,7 +299,7 @@
     function saveDoc(id, text, meta, audioChunks) {
         var tx = db.transaction('docs', 'readwrite');
         var data = {id: id, text: text, meta: meta};
-        if(audioChunks) data.audio = audioChunks; // Save audio blobs/base64
+        if(audioChunks) data.audio = audioChunks; 
         tx.objectStore('docs').put(data);
     }
 
@@ -324,9 +323,19 @@
         localStorage.setItem('deleted', JSON.stringify(Array.from(deletedIds)));
     }
 
-    // Google Auth
+    // Google Auth - RESILIENT VERSION
     function initGoogleAPI() {
+        // Safety timeout
+        var loadTimeout = setTimeout(function() {
+            if(authBtn.disabled) {
+                authBtn.disabled = false;
+                authBtn.querySelector('span').textContent = 'Init Failed (Retry)';
+                authBtn.onclick = function() { window.location.reload(); };
+            }
+        }, 5000);
+
         gapi.load('client', function() {
+            clearTimeout(loadTimeout);
             gapi.client.init({
                 apiKey: API_KEY,
                 discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
@@ -443,6 +452,8 @@
         var foldersDone = 0;
         
         var query = "trashed=false and mimeType='application/vnd.google-apps.document'";
+        
+        // API Level Filter
         if (lastSyncTime) {
             query += " and createdTime > '" + lastSyncTime + "'";
         }
@@ -457,11 +468,13 @@
                     pageSize: 100
                 }).then(function(resp) {
                     (resp.result.files || []).forEach(function(f) {
+                        // CLIENT SIDE HARD FILTER - Double check date
                         if (lastSyncTime) {
                             var fileTime = new Date(f.createdTime).getTime();
                             var syncTime = new Date(lastSyncTime).getTime();
-                            if (fileTime <= syncTime) return; 
+                            if (fileTime <= syncTime) return; // Skip old files
                         }
+                        
                         if (!deletedIds.has(f.id)) {
                             files.push({id: f.id, name: f.name, folder: folderName, modified: f.modifiedTime, created: f.createdTime});
                         }
@@ -507,9 +520,11 @@
 
             localStorage.setItem('playlist', JSON.stringify(playlist));
             
-            if (addedCount > 0 || !lastSyncTime) {
-                lastSyncTime = new Date().toISOString();
-                localStorage.setItem('lastSyncTime', lastSyncTime);
+            // Set sync time if first run
+            if (!lastSyncTime && playlist.length > 0) {
+                 // Don't set here if we want to allow user to clear first. 
+                 // But typically first run shouldn't filter.
+                 // We only set it on "Clear".
             }
 
             renderPlaylist();
@@ -519,7 +534,9 @@
             
             if (addedCount > 0 && playlist.length > 0) {
                 showToast('Found ' + addedCount + ' new docs', 'success');
-                downloadSingleItem(0, false); // Auto download newest, no save audio yet unless button pressed
+                downloadSingleItem(0, false); 
+            } else if (playlist.length === 0) {
+                // showToast('No new documents found', 'info');
             }
         });
     }
@@ -534,7 +551,6 @@
         gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'}).then(function(resp) {
             var text = resp.body;
             if (text && text.trim()) {
-                // If dlAudio is true, we fetch audio chunks immediately
                 if (dlAudio) {
                     fetchAndSaveAudio(i, text);
                 } else {
@@ -569,13 +585,12 @@
                 audioData.push(content);
             } else {
                 showToast('Audio download failed', 'error');
-                playlist[i].status = 'cached'; // Revert to just cached text
+                playlist[i].status = 'cached'; 
                 renderPlaylist();
                 return;
             }
         }
         
-        // Save text AND audio chunks
         saveDoc(playlist[i].id, text, {
             name: playlist[i].name, 
             folder: playlist[i].folder,
@@ -583,7 +598,7 @@
         }, audioData);
         
         playlist[i].text = text;
-        playlist[i].status = 'downloaded'; // New Status
+        playlist[i].status = 'downloaded'; 
         renderPlaylist();
         
         if(isDownloadingAll) downloadNextInQueue();
@@ -596,7 +611,6 @@
     }
 
     function downloadNextInQueue() {
-        // Find next item that is not 'downloaded'
         var nextIdx = -1;
         for (var i = 0; i < playlist.length; i++) {
             if (playlist[i].status !== 'downloaded') {
@@ -606,5 +620,408 @@
         }
         
         if (nextIdx !== -1) {
-            // Check if text is already cached or needs fetching
-            if (
+            if (playlist[nextIdx].text) {
+                fetchAndSaveAudio(nextIdx, playlist[nextIdx].text);
+            } else {
+                downloadSingleItem(nextIdx, true);
+            }
+        } else {
+            isDownloadingAll = false;
+            showToast('All downloads complete!', 'success');
+        }
+    }
+
+    function loadCachedPlaylist() {
+        var saved = localStorage.getItem('playlist');
+        if (saved) {
+            playlist = JSON.parse(saved);
+            playlist = playlist.filter(function(p) { return !deletedIds.has(p.id); });
+            getAllDocs(function(cached) {
+                var cacheMap = {};
+                cached.forEach(function(c) { cacheMap[c.id] = c; });
+                
+                playlist.forEach(function(p) {
+                    var c = cacheMap[p.id];
+                    if (c) { 
+                        p.text = c.text; 
+                        if (c.audio && c.audio.length > 0) {
+                            p.status = 'downloaded';
+                        } else {
+                            p.status = 'cached'; 
+                        }
+                    }
+                });
+                renderPlaylist();
+            });
+        }
+    }
+
+    function clearAllDocuments() {
+        if (!confirm('Clear list and ignore all old files? (Only new files created from now on will appear)')) return;
+        
+        stopAudio();
+        playlist = [];
+        localStorage.removeItem('playlist');
+        lastSyncTime = new Date().toISOString();
+        localStorage.setItem('lastSyncTime', lastSyncTime);
+        
+        var tx = db.transaction('docs', 'readwrite');
+        tx.objectStore('docs').clear();
+        
+        renderPlaylist();
+        showToast('Cleared. Only NEW files will appear now.', 'success');
+        settingsModal.classList.remove('visible');
+        syncDot.className = 'sync-dot';
+        syncText.textContent = 'Offline';
+    }
+
+    // Render
+    function renderPlaylist() {
+        if (playlist.length === 0) {
+            playlistEmpty.style.display = 'block';
+            playlistEl.innerHTML = '';
+            playlistCount.textContent = '0 documents';
+            player.classList.add('hidden');
+            return;
+        }
+        playlistEmpty.style.display = 'none';
+        playlistCount.textContent = playlist.length + ' doc' + (playlist.length > 1 ? 's' : '');
+
+        var html = '';
+        for (var i = 0; i < playlist.length; i++) {
+            var p = playlist[i];
+            var active = i === currentTrackIndex;
+            var playing = active && isPlaying;
+            
+            var statusLabel = p.status;
+            if (p.status === 'pending') statusLabel = 'cloud'; 
+            if (p.status === 'downloaded') statusLabel = 'offline';
+            
+            var badgeClass = p.status;
+            
+            html += '<div class="track' + (active ? ' active' : '') + (playing ? ' playing' : '') + '" data-i="' + i + '">';
+            html += '<div class="track-number"><span>' + (i+1) + '</span><div class="track-equalizer"><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div></div></div>';
+            html += '<div class="track-info"><div class="track-title">' + esc(p.name) + '</div>';
+            html += '<div class="track-meta"><span class="track-folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>' + esc(p.folder) + '</span>';
+            html += '<span class="status-badge ' + badgeClass + '">' + statusLabel + '</span></div></div>';
+            html += '<button class="track-delete-btn" data-i="' + i + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>';
+            html += '</div>';
+        }
+        playlistEl.innerHTML = html;
+
+        var tracks = playlistEl.querySelectorAll('.track');
+        for (var t = 0; t < tracks.length; t++) {
+            tracks[t].onclick = function(e) {
+                if (e.target.closest('.track-delete-btn')) return;
+                var idx = parseInt(this.getAttribute('data-i'));
+                if (playlist[idx].status === 'pending') {
+                    downloadSingleItem(idx, false);
+                } else {
+                    play(idx);
+                }
+            };
+        }
+        var delBtns = playlistEl.querySelectorAll('.track-delete-btn');
+        for (var d = 0; d < delBtns.length; d++) {
+            delBtns[d].onclick = function(e) {
+                e.stopPropagation();
+                deleteTrack(parseInt(this.getAttribute('data-i')));
+            };
+        }
+
+        if (playlist.length > 0 && content.classList.contains('visible')) {
+            player.classList.remove('hidden');
+        } else {
+            player.classList.add('hidden');
+        }
+    }
+
+    function deleteTrack(i) {
+        var p = playlist[i];
+        if (!p) return;
+        if (currentTrackIndex === i) { stopAudio(); currentTrackIndex = -1; }
+        else if (currentTrackIndex > i) currentTrackIndex--;
+        deleteDoc(p.id);
+        deletedIds.add(p.id);
+        saveDeletedIds();
+        playlist.splice(i, 1);
+        localStorage.setItem('playlist', JSON.stringify(playlist));
+        renderPlaylist();
+        showToast('Removed', 'success');
+        if (playlist.length === 0) player.classList.add('hidden');
+    }
+
+    // --- GOOGLE CLOUD TTS LOGIC ---
+
+    async function fetchVoices() {
+        const url = `https://texttospeech.googleapis.com/v1/voices?key=${API_KEY}&languageCode=en-US`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            let voices = [];
+            if(data.voices){
+                voices = data.voices.filter(v => v.name.includes('Neural2'));
+            }
+            if(voices.length === 0) voices = BACKUP_VOICES;
+            renderVoiceList(voices);
+        } catch (e) {
+            console.error('Failed to fetch voices, using backup', e);
+            renderVoiceList(BACKUP_VOICES); 
+        }
+    }
+
+    function renderVoiceList(voices) {
+        let html = '';
+        voices.forEach(v => {
+            const isSelected = v.name === selectedVoiceId;
+            html += `<div class="voice-item ${isSelected ? 'selected' : ''}" onclick="selectVoice('${v.name}')">
+                <input type="radio" name="voice" class="voice-radio" ${isSelected ? 'checked' : ''}>
+                <div class="voice-details">
+                    <div class="voice-name">${v.name.replace('en-US-Neural2-', 'Neural ')} (${v.ssmlGender})</div>
+                    <div class="voice-tag">English (US)</div>
+                </div>
+                <button class="voice-preview-btn" onclick="previewVoice(event, '${v.name}')" title="Preview">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+            </div>`;
+        });
+        voiceListEl.innerHTML = html;
+    }
+
+    function selectVoice(id) {
+        selectedVoiceId = id;
+        localStorage.setItem('selectedVoice', id);
+        document.querySelectorAll('.voice-item').forEach(el => {
+            if (el.innerHTML.includes(id)) {
+                el.classList.add('selected');
+                el.querySelector('input').checked = true;
+            } else {
+                el.classList.remove('selected');
+                el.querySelector('input').checked = false;
+            }
+        });
+    }
+
+    async function previewVoice(e, id) {
+        e.stopPropagation(); 
+        showToast('Previewing...', 'info');
+        const content = await synthesizeText("Hello. This is a preview of my voice.", id);
+        if (content) {
+            const tempAudio = new Audio("data:audio/mp3;base64," + content);
+            tempAudio.play();
+        }
+    }
+
+    async function synthesizeText(text, voiceId) {
+        const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${API_KEY}`;
+        const payload = {
+            input: { text: text },
+            voice: { languageCode: 'en-US', name: voiceId },
+            audioConfig: { audioEncoding: 'MP3' }
+        };
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+            return data.audioContent; 
+        } catch (e) {
+            console.error(e);
+            showToast('TTS Error: ' + e.message, 'error');
+            return null;
+        }
+    }
+
+    function chunkText(text) {
+        const limit = 4500; 
+        const chunks = [];
+        let index = 0;
+        
+        while (index < text.length) {
+            let endIndex = Math.min(index + limit, text.length);
+            if (endIndex < text.length) {
+                const lastPeriod = text.lastIndexOf('.', endIndex);
+                const lastSpace = text.lastIndexOf(' ', endIndex);
+                if (lastPeriod > index) endIndex = lastPeriod + 1;
+                else if (lastSpace > index) endIndex = lastSpace;
+            }
+            chunks.push(text.substring(index, endIndex));
+            index = endIndex;
+        }
+        return chunks;
+    }
+
+    async function play(i) {
+        if (i < 0 || i >= playlist.length) return;
+        
+        if (currentTrackIndex !== i) {
+            stopAudio();
+            currentTrackIndex = i;
+        }
+
+        var p = playlist[i];
+
+        // CHECK OFFLINE STORAGE FIRST
+        var tx = db.transaction('docs', 'readonly');
+        var req = tx.objectStore('docs').get(p.id);
+        
+        req.onsuccess = function() {
+            var doc = req.result;
+            if (doc && doc.audio && doc.audio.length > 0) {
+                // Play offline
+                playOffline(doc.audio, 0, i, p.name);
+            } else if (doc && doc.text) {
+                // Stream online (cached text)
+                playStream(doc.text, i, p.name);
+            } else {
+                // Needs fetching
+                downloadSingleItem(i, false);
+            }
+        };
+    }
+
+    function playOffline(audioChunks, chunkIdx, trackIdx, title) {
+        if (chunkIdx >= audioChunks.length) {
+            if (trackIdx < playlist.length - 1) play(trackIdx + 1);
+            else { isPlaying = false; updateUI(); }
+            return;
+        }
+        
+        if (chunkIdx === 0) {
+            playerTitle.textContent = title;
+            playerPosition.textContent = (trackIdx + 1) + ' / ' + playlist.length;
+            showToast('Playing from offline storage', 'success');
+        }
+
+        audio.src = "data:audio/mp3;base64," + audioChunks[chunkIdx];
+        audio.playbackRate = playbackSpeed;
+        audio.play();
+        isPlaying = true;
+        updateUI();
+
+        audio.onended = function() {
+            playOffline(audioChunks, chunkIdx + 1, trackIdx, title);
+        };
+    }
+
+    function playStream(text, i, title) {
+        if (textChunks.length === 0) {
+            textChunks = chunkText(text);
+            currentChunkIdx = 0;
+            playerTitle.textContent = title;
+            playerPosition.textContent = (i + 1) + ' / ' + playlist.length;
+        }
+        playNextStreamChunk();
+    }
+
+    async function playNextStreamChunk() {
+        if (currentChunkIdx >= textChunks.length) {
+            if (currentTrackIndex < playlist.length - 1) {
+                textChunks = []; 
+                play(currentTrackIndex + 1);
+            } else {
+                stopAudio();
+            }
+            return;
+        }
+        if (currentChunkIdx === 0) showToast('Streaming (Online)...', 'info');
+        const audioContent = await synthesizeText(textChunks[currentChunkIdx], selectedVoiceId);
+        if (audioContent) {
+            audio.src = "data:audio/mp3;base64," + audioContent;
+            audio.playbackRate = playbackSpeed;
+            audio.play();
+            isPlaying = true;
+            updateUI();
+            audio.onended = function() {
+                currentChunkIdx++;
+                playNextStreamChunk();
+            };
+        }
+    }
+
+    audio.onerror = function() {
+        showToast('Playback error', 'error');
+        isPlaying = false;
+        updateUI();
+    };
+
+    function stopAudio() {
+        audio.pause();
+        audio.currentTime = 0;
+        isPlaying = false;
+        textChunks = [];
+        currentChunkIdx = 0;
+        updateUI();
+    }
+
+    function togglePlay() {
+        if (currentTrackIndex === -1) {
+            if (playlist.length > 0) play(0);
+            return;
+        }
+        
+        if (audio.paused && audio.src) {
+            audio.play();
+            isPlaying = true;
+        } else if (!audio.paused) {
+            audio.pause();
+            isPlaying = false;
+        } else {
+            play(currentTrackIndex);
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        playIcon.style.display = isPlaying ? 'none' : 'block';
+        pauseIcon.style.display = isPlaying ? 'block' : 'none';
+        renderPlaylist();
+    }
+
+    function prevTrack() { 
+        stopAudio();
+        if (currentTrackIndex > 0) play(currentTrackIndex - 1); 
+    }
+    
+    function nextTrack() { 
+        stopAudio();
+        if (currentTrackIndex < playlist.length - 1) play(currentTrackIndex + 1); 
+    }
+    
+    function cycleSpeed() {
+        var idx = speeds.indexOf(playbackSpeed);
+        playbackSpeed = speeds[(idx + 1) % speeds.length];
+        speedBtn.textContent = playbackSpeed + 'x';
+        if (!audio.paused) audio.playbackRate = playbackSpeed;
+    }
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function showToast(msg, type) { toast.textContent = msg; toast.className = 'toast ' + (type || '') + ' show'; setTimeout(function() { toast.classList.remove('show'); }, 3000); }
+
+    function setupEvents() {
+        authBtn.onclick = signIn;
+        refreshBtn.onclick = syncDrive;
+        playPauseBtn.onclick = togglePlay;
+        document.getElementById('prev-btn').onclick = prevTrack;
+        document.getElementById('next-btn').onclick = nextTrack;
+        document.getElementById('rewind-btn').onclick = function() { audio.currentTime -= 10; }; 
+        document.getElementById('forward-btn').onclick = function() { audio.currentTime += 10; }; 
+        speedBtn.onclick = cycleSpeed;
+        
+        settingsBtn.onclick = function() { settingsModal.classList.add('visible'); };
+        closeSettingsBtn.onclick = function() { settingsModal.classList.remove('visible'); };
+        settingsModal.onclick = function(e) { if(e.target === settingsModal) settingsModal.classList.remove('visible'); };
+        
+        clearAllBtn.onclick = clearAllDocuments;
+        downloadAllBtn.onclick = downloadAllAudio;
+        reauthToast.onclick = signIn; 
+    }
+
+    init();
+    </script>
+</body>
+</html>
