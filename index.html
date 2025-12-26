@@ -64,8 +64,8 @@
         .track-folder{display:flex;align-items:center;gap:4px}
         .track-folder svg{width:14px;height:14px}
         .status-badge{padding:4px 8px;border-radius:4px;font-size:0.7rem;font-weight:500;text-transform:uppercase}
-        .status-badge.cached{background:rgba(74,222,128,0.15);color:var(--success)} /* Now means Text Cached */
-        .status-badge.downloaded{background:var(--accent-bg);color:var(--accent);} /* Audio Downloaded */
+        .status-badge.cached{background:rgba(74,222,128,0.15);color:var(--success)} 
+        .status-badge.downloaded{background:var(--accent-bg);color:var(--accent);} 
         .status-badge.generating{background:rgba(251,191,36,0.15);color:var(--warning)}
         .status-badge.new{background:rgba(232,255,71,0.15);color:var(--accent)}
         .status-badge.pending{background:rgba(136,136,136,0.15);color:var(--text-muted)}
@@ -193,9 +193,9 @@
                 <h4 class="settings-section-title">Storage</h4>
                 <div class="settings-info">Clearing documents sets the sync time to "now", ignoring older files.</div>
                 <div class="settings-actions">
-                    <button id="download-all-btn" class="action-btn primary">
+                    <button id="export-files-btn" class="action-btn primary">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Download Audio for All Docs
+                        Export All as MP3 Files
                     </button>
                     <button id="clear-all-btn" class="danger-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -227,7 +227,6 @@
     var textChunks = []; 
     var currentChunkIdx = 0;
     var lastSyncTime = localStorage.getItem('lastSyncTime');
-    var isDownloadingAll = false;
 
     // Hardcoded Full Fallback Voices (No B)
     const BACKUP_VOICES = [
@@ -254,7 +253,6 @@
     var closeSettingsBtn = document.getElementById('close-settings');
     var voiceListEl = document.getElementById('voice-list');
     var clearAllBtn = document.getElementById('clear-all-btn');
-    var downloadAllBtn = document.getElementById('download-all-btn');
     var playlistEl = document.getElementById('playlist');
     var playlistEmpty = document.getElementById('playlist-empty');
     var playlistCount = document.getElementById('playlist-count');
@@ -539,7 +537,7 @@
                 } else {
                     saveDoc(playlist[i].id, text, {
                         name: playlist[i].name, 
-                        folder: playlist[i].folder,
+                        folder: playlist[i].folder, 
                         modified: playlist[i].modified 
                     }, null);
                     playlist[i].text = text;
@@ -576,44 +574,94 @@
         
         saveDoc(playlist[i].id, text, {
             name: playlist[i].name, 
-            folder: playlist[i].folder,
+            folder: playlist[i].folder, 
             modified: playlist[i].modified 
         }, audioData);
         
         playlist[i].text = text;
         playlist[i].status = 'downloaded'; 
         renderPlaylist();
-        
-        if(isDownloadingAll) downloadNextInQueue();
     }
 
-    function downloadAllAudio() {
-        isDownloadingAll = true;
-        downloadNextInQueue();
-        settingsModal.classList.remove('visible');
+    // --- EXPORT TO FILE LOGIC ---
+
+    async function exportAllDocsAsFiles() {
+        if (playlist.length === 0) return showToast('No documents to export', 'error');
+        
+        settingsModal.classList.remove('visible'); 
+        
+        if(!confirm("This will process " + playlist.length + " documents and download them as individual MP3 files. \n\nOn iOS, you may get a popup asking to 'View' or 'Download' for each file.")) return;
+
+        for (let i = 0; i < playlist.length; i++) {
+            showToast(`Exporting ${i + 1}/${playlist.length}: ${playlist[i].name}...`, 'info');
+            
+            try {
+                // 1. Get Text (Check cache or Fetch)
+                let text = playlist[i].text;
+                if (!text) {
+                    const resp = await gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'});
+                    text = resp.body;
+                    // Cache it for future use while we are at it
+                    playlist[i].text = text;
+                    saveDoc(playlist[i].id, text, {
+                        name: playlist[i].name, 
+                        folder: playlist[i].folder, 
+                        modified: playlist[i].modified 
+                    });
+                }
+
+                if (!text || !text.trim()) continue;
+
+                // 2. Synthesize Audio (Get all chunks)
+                const chunks = chunkText(text);
+                const audioBlobs = [];
+                
+                for (let j = 0; j < chunks.length; j++) {
+                    const b64Data = await synthesizeText(chunks[j], selectedVoiceId);
+                    if (b64Data) {
+                        // Convert Base64 to binary
+                        const byteCharacters = atob(b64Data);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let k = 0; k < byteCharacters.length; k++) {
+                            byteNumbers[k] = byteCharacters.charCodeAt(k);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        audioBlobs.push(byteArray);
+                    }
+                }
+
+                // 3. Create Blob and Download
+                if (audioBlobs.length > 0) {
+                    const fullBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
+                    triggerFileDownload(fullBlob, `${playlist[i].name}.mp3`);
+                }
+
+                // Small delay to prevent API/Browser choking
+                await new Promise(r => setTimeout(r, 1000));
+
+            } catch (err) {
+                console.error("Export failed for " + playlist[i].name, err);
+                // Continue to next file even if one fails
+            }
+        }
+        showToast('All exports finished!', 'success');
+        renderPlaylist(); // Updates UI in case we fetched new text
     }
 
-    function downloadNextInQueue() {
-        // Find next item that is not 'downloaded'
-        var nextIdx = -1;
-        for (var i = 0; i < playlist.length; i++) {
-            if (playlist[i].status !== 'downloaded') {
-                nextIdx = i;
-                break;
-            }
-        }
+    function triggerFileDownload(blob, filename) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
         
-        if (nextIdx !== -1) {
-            // Check if text is already cached or needs fetching
-            if (playlist[nextIdx].text) {
-                fetchAndSaveAudio(nextIdx, playlist[nextIdx].text);
-            } else {
-                downloadSingleItem(nextIdx, true);
-            }
-        } else {
-            isDownloadingAll = false;
-            showToast('All downloads complete!', 'success');
-        }
+        // Cleanup
+        setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }, 100);
     }
 
     function loadCachedPlaylist() {
@@ -1006,7 +1054,8 @@
         settingsModal.onclick = function(e) { if(e.target === settingsModal) settingsModal.classList.remove('visible'); };
         
         clearAllBtn.onclick = clearAllDocuments;
-        downloadAllBtn.onclick = downloadAllAudio;
+        // Updated Export Button Logic
+        document.getElementById('export-files-btn').onclick = exportAllDocsAsFiles;
         reauthToast.onclick = signIn; 
     }
 
