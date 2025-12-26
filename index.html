@@ -64,7 +64,8 @@
         .track-folder{display:flex;align-items:center;gap:4px}
         .track-folder svg{width:14px;height:14px}
         .status-badge{padding:4px 8px;border-radius:4px;font-size:0.7rem;font-weight:500;text-transform:uppercase}
-        .status-badge.cached{background:rgba(74,222,128,0.15);color:var(--success)}
+        .status-badge.cached{background:rgba(74,222,128,0.15);color:var(--success)} /* Now means Text Cached */
+        .status-badge.downloaded{background:var(--accent-bg);color:var(--accent);} /* Audio Downloaded */
         .status-badge.generating{background:rgba(251,191,36,0.15);color:var(--warning)}
         .status-badge.new{background:rgba(232,255,71,0.15);color:var(--accent)}
         .status-badge.pending{background:rgba(136,136,136,0.15);color:var(--text-muted)}
@@ -115,11 +116,15 @@
         .voice-preview-btn {width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer;}
         .voice-preview-btn:hover {background: var(--text); color: var(--bg);}
 
+        .action-btn {width: 100%; padding: 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-weight: 500; font-family: var(--sans); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; margin-bottom: 12px;}
+        .action-btn:hover {background: var(--surface-hover);}
+        .action-btn.primary {border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.05);}
+        .action-btn.primary:hover {background: var(--accent-bg);}
+        
         .danger-btn {width: 100%; padding: 12px; border-radius: var(--radius); border: 1px solid var(--error); background: rgba(248,113,113,0.1); color: var(--error); font-weight: 500; font-family: var(--sans); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;}
         .danger-btn:hover {background: var(--error); color: var(--bg);}
         .danger-btn svg {width: 18px; height: 18px;}
 
-        /* Re-Auth Toast */
         .reauth-toast {position:fixed; top:24px; left:50%; transform:translateX(-50%); padding: 8px 16px; background:var(--accent); color:var(--bg); border-radius:var(--radius); font-weight:500; display:flex; align-items:center; gap:12px; z-index: 400; box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; display: none;}
         .reauth-toast.visible {display: flex;}
     </style>
@@ -188,6 +193,10 @@
                 <h4 class="settings-section-title">Storage</h4>
                 <div class="settings-info">Clearing documents sets the sync time to "now", ignoring older files.</div>
                 <div class="settings-actions">
+                    <button id="download-all-btn" class="action-btn primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Audio for All Docs
+                    </button>
                     <button id="clear-all-btn" class="danger-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                         Clear All Documents
@@ -218,6 +227,7 @@
     var textChunks = []; 
     var currentChunkIdx = 0;
     var lastSyncTime = localStorage.getItem('lastSyncTime');
+    var isDownloadingAll = false;
 
     // Hardcoded Full Fallback Voices (No B)
     const BACKUP_VOICES = [
@@ -244,6 +254,7 @@
     var closeSettingsBtn = document.getElementById('close-settings');
     var voiceListEl = document.getElementById('voice-list');
     var clearAllBtn = document.getElementById('clear-all-btn');
+    var downloadAllBtn = document.getElementById('download-all-btn');
     var playlistEl = document.getElementById('playlist');
     var playlistEmpty = document.getElementById('playlist-empty');
     var playlistCount = document.getElementById('playlist-count');
@@ -274,16 +285,23 @@
     // IndexedDB
     function initDB() {
         return new Promise(function(resolve) {
-            var req = indexedDB.open('TextifyDB', 1);
-            req.onupgradeneeded = function(e) { e.target.result.createObjectStore('docs', {keyPath: 'id'}); };
+            var req = indexedDB.open('TextifyDB', 2); // Version 2 for audio storage
+            req.onupgradeneeded = function(e) { 
+                var db = e.target.result;
+                if(!db.objectStoreNames.contains('docs')) {
+                    db.createObjectStore('docs', {keyPath: 'id'});
+                }
+            };
             req.onsuccess = function(e) { db = e.target.result; resolve(); };
             req.onerror = function() { resolve(); };
         });
     }
 
-    function saveDoc(id, text, meta) {
+    function saveDoc(id, text, meta, audioChunks) {
         var tx = db.transaction('docs', 'readwrite');
-        tx.objectStore('docs').put({id: id, text: text, meta: meta});
+        var data = {id: id, text: text, meta: meta};
+        if(audioChunks) data.audio = audioChunks; // Save audio blobs/base64
+        tx.objectStore('docs').put(data);
     }
 
     function getAllDocs(callback) {
@@ -306,7 +324,7 @@
         localStorage.setItem('deleted', JSON.stringify(Array.from(deletedIds)));
     }
 
-    // Google Auth - SOFT REFRESH VERSION
+    // Google Auth
     function initGoogleAPI() {
         gapi.load('client', function() {
             gapi.client.init({
@@ -343,7 +361,7 @@
         if (token && gapiInited) {
             accessToken = token;
             gapi.client.setToken({access_token: token});
-            verifyUser(true); // Is silent check
+            verifyUser(true);
         }
     }
 
@@ -384,7 +402,7 @@
         if (resp.error) { showToast('Auth failed', 'error'); return; }
         accessToken = resp.access_token;
         localStorage.setItem('token', accessToken);
-        reauthToast.classList.remove('visible'); // Hide reauth button
+        reauthToast.classList.remove('visible');
         verifyUser(false);
     }
 
@@ -424,7 +442,6 @@
         var files = [];
         var foldersDone = 0;
         
-        // API Level Filter
         var query = "trashed=false and mimeType='application/vnd.google-apps.document'";
         if (lastSyncTime) {
             query += " and createdTime > '" + lastSyncTime + "'";
@@ -440,12 +457,154 @@
                     pageSize: 100
                 }).then(function(resp) {
                     (resp.result.files || []).forEach(function(f) {
-                        // CLIENT SIDE HARD FILTER
                         if (lastSyncTime) {
                             var fileTime = new Date(f.createdTime).getTime();
                             var syncTime = new Date(lastSyncTime).getTime();
-                            if (fileTime <= syncTime) return; // Skip old file
+                            if (fileTime <= syncTime) return; 
                         }
-                        
                         if (!deletedIds.has(f.id)) {
-                            files.push({id: f.id, name: f.name, folder: folderName, modified: f.
+                            files.push({id: f.id, name: f.name, folder: folderName, modified: f.modifiedTime, created: f.createdTime});
+                        }
+                    });
+                    foldersDone++;
+                    if (foldersDone === FOLDER_IDS.length) finishSync(files);
+                });
+            }).catch(function(err) {
+                console.error(err);
+                if(err.status === 401) showReauthToast(); 
+                foldersDone++;
+                if (foldersDone === FOLDER_IDS.length) finishSync(files);
+            });
+        });
+    }
+
+    function finishSync(newFiles) {
+        newFiles.sort(function(a, b) {
+            return new Date(b.created) - new Date(a.created);
+        });
+
+        getAllDocs(function(cached) {
+            var cacheMap = {};
+            cached.forEach(function(c) { cacheMap[c.id] = c; });
+
+            var existingIds = new Set(playlist.map(function(p) { return p.id; }));
+            var addedCount = 0;
+
+            for (var i = newFiles.length - 1; i >= 0; i--) {
+                var f = newFiles[i];
+                if (!existingIds.has(f.id)) {
+                    playlist.unshift({
+                        id: f.id,
+                        name: f.name,
+                        folder: f.folder,
+                        modified: f.modified,
+                        status: 'pending', 
+                        text: null
+                    });
+                    addedCount++;
+                }
+            }
+
+            localStorage.setItem('playlist', JSON.stringify(playlist));
+            
+            if (addedCount > 0 || !lastSyncTime) {
+                lastSyncTime = new Date().toISOString();
+                localStorage.setItem('lastSyncTime', lastSyncTime);
+            }
+
+            renderPlaylist();
+            syncDot.className = 'sync-dot synced';
+            syncText.textContent = playlist.length + ' docs';
+            refreshBtn.classList.remove('spinning');
+            
+            if (addedCount > 0 && playlist.length > 0) {
+                showToast('Found ' + addedCount + ' new docs', 'success');
+                downloadSingleItem(0, false); // Auto download newest, no save audio yet unless button pressed
+            }
+        });
+    }
+
+    // Downloads text first
+    function downloadSingleItem(i, dlAudio) {
+        if (!playlist[i] || (playlist[i].status === 'cached' && !dlAudio)) return;
+
+        playlist[i].status = 'generating';
+        renderPlaylist();
+
+        gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'}).then(function(resp) {
+            var text = resp.body;
+            if (text && text.trim()) {
+                // If dlAudio is true, we fetch audio chunks immediately
+                if (dlAudio) {
+                    fetchAndSaveAudio(i, text);
+                } else {
+                    saveDoc(playlist[i].id, text, {
+                        name: playlist[i].name, 
+                        folder: playlist[i].folder,
+                        modified: playlist[i].modified 
+                    }, null);
+                    playlist[i].text = text;
+                    playlist[i].status = 'cached';
+                    renderPlaylist();
+                }
+            } else {
+                playlist[i].status = 'pending';
+                renderPlaylist();
+            }
+        }).catch(function(err) {
+            if(err.status === 401) showReauthToast();
+            playlist[i].status = 'pending';
+            renderPlaylist();
+        });
+    }
+
+    async function fetchAndSaveAudio(i, text) {
+        showToast('Downloading audio for ' + playlist[i].name, 'info');
+        var chunks = chunkText(text);
+        var audioData = [];
+        
+        for (let j = 0; j < chunks.length; j++) {
+            let content = await synthesizeText(chunks[j], selectedVoiceId);
+            if (content) {
+                audioData.push(content);
+            } else {
+                showToast('Audio download failed', 'error');
+                playlist[i].status = 'cached'; // Revert to just cached text
+                renderPlaylist();
+                return;
+            }
+        }
+        
+        // Save text AND audio chunks
+        saveDoc(playlist[i].id, text, {
+            name: playlist[i].name, 
+            folder: playlist[i].folder,
+            modified: playlist[i].modified 
+        }, audioData);
+        
+        playlist[i].text = text;
+        playlist[i].status = 'downloaded'; // New Status
+        renderPlaylist();
+        
+        if(isDownloadingAll) downloadNextInQueue();
+    }
+
+    function downloadAllAudio() {
+        isDownloadingAll = true;
+        downloadNextInQueue();
+        settingsModal.classList.remove('visible');
+    }
+
+    function downloadNextInQueue() {
+        // Find next item that is not 'downloaded'
+        var nextIdx = -1;
+        for (var i = 0; i < playlist.length; i++) {
+            if (playlist[i].status !== 'downloaded') {
+                nextIdx = i;
+                break;
+            }
+        }
+        
+        if (nextIdx !== -1) {
+            // Check if text is already cached or needs fetching
+            if (
