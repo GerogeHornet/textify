@@ -15,36 +15,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
     <style>
-        /* UPDATED COLORS: Canary Yellow #FFEF00 */
-        :root {
-            --bg:#0a0a0a;
-            --surface:#141414;
-            --surface-hover:#1a1a1a;
-            --border:#2a2a2a;
-            --text:#fafafa;
-            --text-muted:#888;
-            --text-dim:#555;
-            --accent:#FFEF00; /* Canary Yellow */
-            --accent-dim:#e6d700;
-            --accent-bg:rgba(255, 239, 0, 0.1); /* Transparent Yellow */
-            --success:#4ade80;
-            --error:#f87171;
-            --warning:#fbbf24;
-            --serif:'Instrument Serif',Georgia,serif;
-            --sans:'DM Sans',system-ui,sans-serif;
-            --radius:12px;
-            --radius-sm:8px
-        }
+        :root {--bg:#0a0a0a;--surface:#141414;--surface-hover:#1a1a1a;--border:#2a2a2a;--text:#fafafa;--text-muted:#888;--text-dim:#555;--accent:#FFEF00;--accent-dim:#e6d700;--accent-bg:rgba(255, 239, 0, 0.1);--success:#4ade80;--error:#f87171;--warning:#fbbf24;--serif:'Instrument Serif',Georgia,serif;--sans:'DM Sans',system-ui,sans-serif;--radius:12px;--radius-sm:8px}
         *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         html,body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;overflow-x:hidden}
         .app{display:flex;flex-direction:column;min-height:100vh}
         .header{padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100}
         .logo{font-family:var(--serif);font-size:1.75rem;font-style:italic}.logo span{color:var(--accent)}
         .header-actions{display:flex;align-items:center;gap:12px}
-        
-        /* Updated Sync Status to use Accent Color */
         .sync-status{display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--accent)}
-        
         .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim)}
         .sync-dot.syncing{background:var(--warning);animation:pulse 1s infinite}
         .sync-dot.synced{background:var(--success)}.sync-dot.error{background:var(--error)}
@@ -70,9 +48,13 @@
         .playlist-count{font-size:0.85rem;color:var(--text-muted)}
         .playlist-empty{text-align:center;padding:60px 20px;color:var(--text-muted)}
         .playlist{display:flex;flex-direction:column;gap:8px}
-        .track{display:flex;align-items:center;gap:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer}
+        .track{display:flex;align-items:center;gap:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;}
         .track:hover{background:var(--surface-hover)}
         .track.active{background:var(--accent-bg);border-color:var(--accent)}
+        
+        /* Dragging State */
+        .track.dragging {opacity: 0.5; background: var(--surface-hover); transform: scale(0.98); box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10;}
+        
         .track.generating{opacity:0.7}
         .track-number{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--text-muted);flex-shrink:0}
         .track.active .track-number{color:var(--accent)}
@@ -95,8 +77,14 @@
         .status-badge.generating{background:rgba(251,191,36,0.15);color:var(--warning)}
         .status-badge.new{background:rgba(232,255,71,0.15);color:var(--accent)}
         .status-badge.pending{background:rgba(136,136,136,0.15);color:var(--text-muted)}
+        
+        .track-actions {display:flex; align-items:center; gap:8px;}
         .track-delete-btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(248,113,113,0.15);color:var(--error);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
         .track-delete-btn svg{width:18px;height:18px}
+        
+        .track-drag-handle {width:40px; height:40px; display:flex; align-items:center; justify-content:center; color: var(--text-dim); cursor: grab; touch-action: none;}
+        .track-drag-handle svg {width: 20px; height: 20px;}
+
         .player{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(to top,var(--bg) 80%,transparent);padding:20px 24px 32px;padding-bottom:max(32px,env(safe-area-inset-bottom)); z-index: 200;}
         .player.hidden{display:none}
         .player-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:0 -8px 32px rgba(0,0,0,0.4)}
@@ -110,7 +98,7 @@
         .player-controls{display:flex;align-items:center;justify-content:center;gap:12px}
         .control-btn{width:48px;height:48px;border-radius:50%;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer}
         .control-btn svg{width:24px;height:24px}
-        .control-btn.play-pause{width:64px;height:64px;background:var(--accent);color: #000000;} /* Icon inside yellow button is black */
+        .control-btn.play-pause{width:64px;height:64px;background:var(--accent);color:#000000;} 
         .control-btn.play-pause svg{width:28px;height:28px}
         .speed-btn{min-width:48px;padding:8px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--sans);font-size:0.8rem;font-weight:500;cursor:pointer}
         .toast{position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(-100px);padding:14px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.9rem;opacity:0;transition:all 0.3s;z-index:300}
@@ -549,10 +537,12 @@
                 }
             }
 
-            // Force Sort entire playlist by Creation Date (Oldest -> Newest)
-            playlist.sort(function(a, b) {
-                return new Date(a.created) - new Date(b.created);
-            });
+            // Only sort by date on initial sync, otherwise respect manual order from localStorage
+            if (!localStorage.getItem('playlist_reordered')) {
+                 playlist.sort(function(a, b) {
+                    return new Date(a.created) - new Date(b.created);
+                });
+            }
 
             localStorage.setItem('playlist', JSON.stringify(playlist));
             
@@ -575,8 +565,6 @@
 
     async function processDownloadQueue(items) {
         for (let item of items) {
-            // We need to find the CURRENT index of this item in the sorted playlist
-            // because downloadSingleItem uses the index
             let currentIdx = playlist.findIndex(p => p.id === item.id);
             if (currentIdx !== -1) {
                 await downloadSingleItem(currentIdx, true);
@@ -734,10 +722,12 @@
             playlist = JSON.parse(saved);
             playlist = playlist.filter(function(p) { return !deletedIds.has(p.id); });
             
-            // Sort by creation time (Oldest -> Newest) on load
-            playlist.sort(function(a, b) {
-                return new Date(a.created) - new Date(b.created);
-            });
+            // Only force sort if user has NOT manually reordered
+            if (!localStorage.getItem('playlist_reordered')) {
+                playlist.sort(function(a, b) {
+                    return new Date(a.created) - new Date(b.created);
+                });
+            }
 
             getAllDocs(function(cached) {
                 var cacheMap = {};
@@ -763,6 +753,7 @@
         stopAudio();
         playlist = [];
         localStorage.removeItem('playlist');
+        localStorage.removeItem('playlist_reordered'); // Reset reorder flag
         lastSyncTime = new Date().toISOString();
         localStorage.setItem('lastSyncTime', lastSyncTime);
         var tx = db.transaction('docs', 'readwrite');
@@ -795,12 +786,18 @@
             if (p.status === 'downloaded') statusLabel = 'offline';
             var badgeClass = p.status;
             
-            html += '<div class="track' + (active ? ' active' : '') + (playing ? ' playing' : '') + '" data-i="' + i + '">';
+            html += '<div class="track' + (active ? ' active' : '') + (playing ? ' playing' : '') + '" data-i="' + i + '" draggable="false">';
             html += '<div class="track-number"><span>' + (i+1) + '</span><div class="track-equalizer"><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div></div></div>';
             html += '<div class="track-info"><div class="track-title">' + esc(p.name) + '</div>';
             html += '<div class="track-meta"><span class="track-folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>' + esc(p.folder) + '</span>';
             html += '<span class="status-badge ' + badgeClass + '">' + statusLabel + '</span></div></div>';
+            
+            // Actions
+            html += '<div class="track-actions">';
             html += '<button class="track-delete-btn" data-i="' + i + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 01 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
+            html += '<div class="track-drag-handle" data-i="' + i + '"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg></div>';
+            html += '</div>'; // End Actions
+            
             html += '</div>';
         }
         playlistEl.innerHTML = html;
@@ -808,7 +805,7 @@
         var tracks = playlistEl.querySelectorAll('.track');
         for (var t = 0; t < tracks.length; t++) {
             tracks[t].onclick = function(e) {
-                if (e.target.closest('.track-delete-btn')) return;
+                if (e.target.closest('.track-delete-btn') || e.target.closest('.track-drag-handle')) return;
                 var idx = parseInt(this.getAttribute('data-i'));
                 if (playlist[idx].status === 'pending') {
                     play(idx); 
@@ -824,10 +821,84 @@
                 deleteTrack(parseInt(this.getAttribute('data-i')));
             };
         }
+        
+        setupDragAndDrop(); // Re-bind drag events
+
         if (playlist.length > 0 && content.classList.contains('visible')) {
             player.classList.remove('hidden');
         } else {
             player.classList.add('hidden');
+        }
+    }
+
+    function setupDragAndDrop() {
+        const handles = document.querySelectorAll('.track-drag-handle');
+        let draggedItem = null;
+        let originalIndex = null;
+        let placeholder = null;
+
+        handles.forEach(handle => {
+            handle.addEventListener('touchstart', handleDragStart, {passive: false});
+            handle.addEventListener('touchmove', handleDragMove, {passive: false});
+            handle.addEventListener('touchend', handleDragEnd);
+        });
+
+        function handleDragStart(e) {
+            e.preventDefault(); // Prevent scrolling
+            const track = this.closest('.track');
+            originalIndex = parseInt(this.getAttribute('data-i'));
+            draggedItem = track;
+            
+            track.classList.add('dragging');
+            // Provide haptic feedback if possible
+            if (navigator.vibrate) navigator.vibrate(50);
+        }
+
+        function handleDragMove(e) {
+            e.preventDefault();
+            if (!draggedItem) return;
+
+            const touch = e.touches[0];
+            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (!elementBelow) return;
+
+            const trackBelow = elementBelow.closest('.track');
+            
+            // If over another track and it's not the one we're dragging
+            if (trackBelow && trackBelow !== draggedItem) {
+                const playlistContainer = document.getElementById('playlist');
+                const children = Array.from(playlistContainer.children);
+                const draggedIdx = children.indexOf(draggedItem);
+                const targetIdx = children.indexOf(trackBelow);
+
+                if (draggedIdx < targetIdx) {
+                    playlistContainer.insertBefore(draggedItem, trackBelow.nextSibling);
+                } else {
+                    playlistContainer.insertBefore(draggedItem, trackBelow);
+                }
+            }
+        }
+
+        function handleDragEnd(e) {
+            if (!draggedItem) return;
+            draggedItem.classList.remove('dragging');
+            
+            // Rebuild playlist array based on new DOM order
+            const newOrderIds = [];
+            const domTracks = document.querySelectorAll('.track');
+            
+            const newPlaylist = [];
+            domTracks.forEach(domTrack => {
+                const oldIndex = parseInt(domTrack.querySelector('.track-drag-handle').getAttribute('data-i'));
+                newPlaylist.push(playlist[oldIndex]);
+            });
+            
+            playlist = newPlaylist;
+            localStorage.setItem('playlist', JSON.stringify(playlist));
+            localStorage.setItem('playlist_reordered', 'true'); // Flag manual reorder
+            
+            renderPlaylist(); // Re-render to update indices
+            draggedItem = null;
         }
     }
 
