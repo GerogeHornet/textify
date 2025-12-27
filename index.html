@@ -507,11 +507,12 @@
 
             var existingIds = new Set(playlist.map(function(p) { return p.id; }));
             var addedCount = 0;
+            var filesToDownload = []; // Track specifically which ones are new
 
             for (var i = 0; i < newFiles.length; i++) {
                 var f = newFiles[i];
                 if (!existingIds.has(f.id)) {
-                    playlist.push({
+                    var newItem = {
                         id: f.id,
                         name: f.name,
                         folder: f.folder,
@@ -519,7 +520,9 @@
                         created: f.created, // Store creation time
                         status: 'pending', 
                         text: null
-                    });
+                    };
+                    playlist.push(newItem);
+                    filesToDownload.push(newItem); // Add to download queue
                     addedCount++;
                 }
             }
@@ -541,16 +544,21 @@
             syncText.textContent = playlist.length + ' docs';
             refreshBtn.classList.remove('spinning');
             
-            if (addedCount > 0) {
-                showToast('Caching ' + addedCount + ' new docs...', 'info');
-                batchDownloadAudio(0, addedCount);
+            if (filesToDownload.length > 0) {
+                showToast('Caching ' + filesToDownload.length + ' new docs...', 'info');
+                processDownloadQueue(filesToDownload);
             }
         });
     }
 
-    async function batchDownloadAudio(startIndex, count) {
-        for (let i = startIndex; i < startIndex + count; i++) {
-            await downloadSingleItem(i, true);
+    async function processDownloadQueue(items) {
+        for (let item of items) {
+            // We need to find the CURRENT index of this item in the sorted playlist
+            // because downloadSingleItem uses the index
+            let currentIdx = playlist.findIndex(p => p.id === item.id);
+            if (currentIdx !== -1) {
+                await downloadSingleItem(currentIdx, true);
+            }
         }
         showToast('All new documents cached offline!', 'success');
     }
