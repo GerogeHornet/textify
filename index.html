@@ -15,14 +15,36 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
     <style>
-        :root {--bg:#0a0a0a;--surface:#141414;--surface-hover:#1a1a1a;--border:#2a2a2a;--text:#fafafa;--text-muted:#888;--text-dim:#555;--accent:#e8ff47;--accent-dim:#b8cc39;--accent-bg:rgba(232,255,71,0.1);--success:#4ade80;--error:#f87171;--warning:#fbbf24;--serif:'Instrument Serif',Georgia,serif;--sans:'DM Sans',system-ui,sans-serif;--radius:12px;--radius-sm:8px}
+        /* UPDATED COLORS: Canary Yellow #FFEF00 */
+        :root {
+            --bg:#0a0a0a;
+            --surface:#141414;
+            --surface-hover:#1a1a1a;
+            --border:#2a2a2a;
+            --text:#fafafa;
+            --text-muted:#888;
+            --text-dim:#555;
+            --accent:#FFEF00; /* Canary Yellow */
+            --accent-dim:#e6d700;
+            --accent-bg:rgba(255, 239, 0, 0.1); /* Transparent Yellow */
+            --success:#4ade80;
+            --error:#f87171;
+            --warning:#fbbf24;
+            --serif:'Instrument Serif',Georgia,serif;
+            --sans:'DM Sans',system-ui,sans-serif;
+            --radius:12px;
+            --radius-sm:8px
+        }
         *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         html,body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;overflow-x:hidden}
         .app{display:flex;flex-direction:column;min-height:100vh}
         .header{padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100}
         .logo{font-family:var(--serif);font-size:1.75rem;font-style:italic}.logo span{color:var(--accent)}
         .header-actions{display:flex;align-items:center;gap:12px}
-        .sync-status{display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-muted)}
+        
+        /* Updated Sync Status to use Accent Color */
+        .sync-status{display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--accent)}
+        
         .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim)}
         .sync-dot.syncing{background:var(--warning);animation:pulse 1s infinite}
         .sync-dot.synced{background:var(--success)}.sync-dot.error{background:var(--error)}
@@ -88,7 +110,7 @@
         .player-controls{display:flex;align-items:center;justify-content:center;gap:12px}
         .control-btn{width:48px;height:48px;border-radius:50%;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer}
         .control-btn svg{width:24px;height:24px}
-        .control-btn.play-pause{width:64px;height:64px;background:var(--accent);color:var(--bg)}
+        .control-btn.play-pause{width:64px;height:64px;background:var(--accent);color: #000000;} /* Icon inside yellow button is black */
         .control-btn.play-pause svg{width:28px;height:28px}
         .speed-btn{min-width:48px;padding:8px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--sans);font-size:0.8rem;font-weight:500;cursor:pointer}
         .toast{position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(-100px);padding:14px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.9rem;opacity:0;transition:all 0.3s;z-index:300}
@@ -129,7 +151,7 @@
         .danger-btn:hover {background: var(--error); color: var(--bg);}
         .danger-btn svg {width: 18px; height: 18px;}
 
-        .reauth-toast {position:fixed; top:24px; left:50%; transform:translateX(-50%); padding: 12px 24px; background:var(--accent); color:var(--bg); border-radius:var(--radius); font-weight:600; display:flex; align-items:center; gap:12px; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.4); cursor: pointer; display: none; font-size: 1rem;}
+        .reauth-toast {position:fixed; top:24px; left:50%; transform:translateX(-50%); padding: 12px 24px; background:var(--accent); color:#000; border-radius:var(--radius); font-weight:600; display:flex; align-items:center; gap:12px; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.4); cursor: pointer; display: none; font-size: 1rem;}
         .reauth-toast.visible {display: flex;}
     </style>
 </head>
