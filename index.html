@@ -470,7 +470,7 @@
                 gapi.client.drive.files.list({
                     q: "'" + folderId + "' in parents and " + query,
                     fields: 'files(id,name,modifiedTime,createdTime)', 
-                    orderBy: 'createdTime desc', 
+                    orderBy: 'createdTime asc', 
                     pageSize: 100
                 }).then(function(resp) {
                     (resp.result.files || []).forEach(function(f) {
@@ -496,8 +496,9 @@
     }
 
     function finishSync(newFiles) {
+        // Sort new files by creation date (Oldest first)
         newFiles.sort(function(a, b) {
-            return new Date(b.created) - new Date(a.created);
+            return new Date(a.created) - new Date(b.created);
         });
 
         getAllDocs(function(cached) {
@@ -507,20 +508,26 @@
             var existingIds = new Set(playlist.map(function(p) { return p.id; }));
             var addedCount = 0;
 
-            for (var i = newFiles.length - 1; i >= 0; i--) {
+            for (var i = 0; i < newFiles.length; i++) {
                 var f = newFiles[i];
                 if (!existingIds.has(f.id)) {
-                    playlist.unshift({
+                    playlist.push({
                         id: f.id,
                         name: f.name,
                         folder: f.folder,
                         modified: f.modified,
+                        created: f.created, // Store creation time
                         status: 'pending', 
                         text: null
                     });
                     addedCount++;
                 }
             }
+
+            // Force Sort entire playlist by Creation Date (Oldest -> Newest)
+            playlist.sort(function(a, b) {
+                return new Date(a.created) - new Date(b.created);
+            });
 
             localStorage.setItem('playlist', JSON.stringify(playlist));
             
@@ -696,6 +703,12 @@
         if (saved) {
             playlist = JSON.parse(saved);
             playlist = playlist.filter(function(p) { return !deletedIds.has(p.id); });
+            
+            // Sort by creation time (Oldest -> Newest) on load
+            playlist.sort(function(a, b) {
+                return new Date(a.created) - new Date(b.created);
+            });
+
             getAllDocs(function(cached) {
                 var cacheMap = {};
                 cached.forEach(function(c) { cacheMap[c.id] = c; });
