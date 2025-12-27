@@ -78,8 +78,8 @@
         .player-track-title{flex:1;font-weight:500;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .player-track-position{font-size:0.8rem;color:var(--text-muted)}
         .player-progress{margin-bottom:16px}
-        .progress-bar{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;cursor:pointer}
-        .progress-fill{height:100%;background:var(--accent);border-radius:3px;width:0%}
+        .progress-bar{width:100%;height:16px;background:var(--border);border-radius:8px;overflow:hidden;cursor:pointer; position: relative; touch-action: none;} 
+        .progress-fill{height:100%;background:var(--accent);border-radius:8px;width:0%; pointer-events: none;}
         .progress-times{display:flex;justify-content:space-between;margin-top:8px;font-size:0.75rem;color:var(--text-muted)}
         .player-controls{display:flex;align-items:center;justify-content:center;gap:12px}
         .control-btn{width:48px;height:48px;border-radius:50%;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer}
@@ -125,7 +125,7 @@
         .danger-btn:hover {background: var(--error); color: var(--bg);}
         .danger-btn svg {width: 18px; height: 18px;}
 
-        .reauth-toast {position:fixed; top:24px; left:50%; transform:translateX(-50%); padding: 8px 16px; background:var(--accent); color:var(--bg); border-radius:var(--radius); font-weight:500; display:flex; align-items:center; gap:12px; z-index: 400; box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; display: none;}
+        .reauth-toast {position:fixed; top:24px; left:50%; transform:translateX(-50%); padding: 12px 24px; background:var(--accent); color:var(--bg); border-radius:var(--radius); font-weight:600; display:flex; align-items:center; gap:12px; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.4); cursor: pointer; display: none; font-size: 1rem;}
         .reauth-toast.visible {display: flex;}
     </style>
 </head>
@@ -141,7 +141,7 @@
         </header>
         
         <div id="reauth-toast" class="reauth-toast">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
             Session Expired. Tap to Renew.
         </div>
 
@@ -166,14 +166,19 @@
         <div class="player hidden" id="player">
             <div class="player-card">
                 <div class="player-track-info"><span class="player-track-title" id="player-title">No track selected</span><span class="player-track-position" id="player-position">0 / 0</span></div>
-                <div class="player-progress"><div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div><div class="progress-times"><span id="current-time">0:00</span><span id="total-time">0:00</span></div></div>
+                <div class="player-progress">
+                    <div class="progress-bar" id="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-times"><span id="current-time">0:00</span><span id="total-time">-0:00</span></div>
+                </div>
                 <div class="player-controls">
                     <button class="control-btn" id="prev-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
                     <button class="control-btn" id="rewind-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></button>
                     <button class="control-btn play-pause" id="play-pause-btn"><svg viewBox="0 0 24 24" fill="currentColor" id="play-icon"><path d="M8 5v14l11-7z"/></svg><svg viewBox="0 0 24 24" fill="currentColor" id="pause-icon" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></button>
                     <button class="control-btn" id="forward-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg></button>
                     <button class="control-btn" id="next-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-                    <button class="speed-btn" id="speed-btn">1.25x</button>
+                    <button class="speed-btn" id="speed-btn">1.5x</button>
                 </div>
             </div>
         </div>
@@ -198,7 +203,7 @@
                         Download Playlist as Single MP3
                     </button>
                     <button id="clear-all-btn" class="danger-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 01 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         Clear All Documents
                     </button>
                 </div>
@@ -220,13 +225,15 @@
     // State
     var tokenClient, gapiInited = false, gisInited = false, accessToken = null;
     var playlist = [], currentTrackIndex = -1, isPlaying = false;
-    var playbackSpeed = 1.25, speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
+    var playbackSpeed = 1.5, speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
     var db, deletedIds = new Set();
     var audio = new Audio(); // HTML5 Audio for Google Cloud TTS
     var selectedVoiceId = localStorage.getItem('selectedVoice') || 'en-US-Neural2-J';
     var textChunks = []; 
     var currentChunkIdx = 0;
     var lastSyncTime = localStorage.getItem('lastSyncTime');
+    var isDragging = false;
+    var currentDocId = null; // Used for saving progress
 
     // Hardcoded Full Fallback Voices (No B)
     const BACKUP_VOICES = [
@@ -259,6 +266,7 @@
     var player = document.getElementById('player');
     var playerTitle = document.getElementById('player-title');
     var playerPosition = document.getElementById('player-position');
+    var progressBar = document.getElementById('progress-bar');
     var progressFill = document.getElementById('progress-fill');
     var currentTimeEl = document.getElementById('current-time');
     var totalTimeEl = document.getElementById('total-time');
@@ -384,6 +392,8 @@
         }).then(function(user) {
             if (!user) return; 
             if (user.email && user.email.split('@')[0].toLowerCase() === ALLOWED_USER) {
+                // SAVE EMAIL FOR SEAMLESS RE-AUTH
+                localStorage.setItem('user_email', user.email);
                 reauthToast.classList.remove('visible'); 
                 showContent();
                 syncDrive();
@@ -406,7 +416,12 @@
 
     function signIn() {
         if (gapiInited && gisInited) {
-            tokenClient.requestAccessToken({}); 
+            var opts = {};
+            // OPTIMIZED: USE SAVED EMAIL TO SKIP ACCOUNT CHOOSER
+            var email = localStorage.getItem('user_email');
+            if(email) opts.login_hint = email;
+            opts.prompt = ''; // Suppress consent if possible
+            tokenClient.requestAccessToken(opts); 
         }
     }
 
@@ -515,25 +530,33 @@
             syncText.textContent = playlist.length + ' docs';
             refreshBtn.classList.remove('spinning');
             
-            if (addedCount > 0 && playlist.length > 0) {
-                showToast('Found ' + addedCount + ' new docs', 'success');
-                downloadSingleItem(0, false); 
+            if (addedCount > 0) {
+                showToast('Caching ' + addedCount + ' new docs...', 'info');
+                batchDownloadAudio(0, addedCount);
             }
         });
     }
 
-    // Downloads text first
-    function downloadSingleItem(i, dlAudio) {
-        if (!playlist[i] || (playlist[i].status === 'cached' && !dlAudio)) return;
+    async function batchDownloadAudio(startIndex, count) {
+        for (let i = startIndex; i < startIndex + count; i++) {
+            await downloadSingleItem(i, true);
+        }
+        showToast('All new documents cached offline!', 'success');
+    }
+
+    async function downloadSingleItem(i, dlAudio) {
+        if (!playlist[i] || playlist[i].status === 'downloaded') return;
 
         playlist[i].status = 'generating';
         renderPlaylist();
 
-        gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'}).then(function(resp) {
+        try {
+            const resp = await gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'});
             var text = resp.body;
+            
             if (text && text.trim()) {
                 if (dlAudio) {
-                    fetchAndSaveAudio(i, text);
+                    await fetchAndSaveAudio(i, text);
                 } else {
                     saveDoc(playlist[i].id, text, {
                         name: playlist[i].name, 
@@ -548,15 +571,14 @@
                 playlist[i].status = 'pending';
                 renderPlaylist();
             }
-        }).catch(function(err) {
+        } catch (err) {
             if(err.status === 401) showReauthToast();
             playlist[i].status = 'pending';
             renderPlaylist();
-        });
+        }
     }
 
     async function fetchAndSaveAudio(i, text) {
-        showToast('Downloading audio for ' + playlist[i].name, 'info');
         var chunks = chunkText(text);
         var audioData = [];
         
@@ -568,7 +590,7 @@
                 showToast('Audio download failed', 'error');
                 playlist[i].status = 'cached'; 
                 renderPlaylist();
-                return;
+                return null;
             }
         }
         
@@ -581,25 +603,23 @@
         playlist[i].text = text;
         playlist[i].status = 'downloaded'; 
         renderPlaylist();
+        
+        if (i === currentTrackIndex && !isPlaying) {
+             playMergedAudio(audioData, i, playlist[i].name, playlist[i].id);
+        }
+        
+        return audioData;
     }
-
-    // --- MERGE AND DOWNLOAD ALL AUDIO LOGIC ---
 
     async function downloadAllAsMergedMP3() {
         if (playlist.length === 0) return showToast('No documents to download', 'error');
-        
         settingsModal.classList.remove('visible'); 
-        
         if(!confirm(`Merge ${playlist.length} documents into ONE single MP3 file?`)) return;
 
-        let allChunks = []; // This will hold Uint8Arrays of every audio chunk
-
-        // 1. Loop through all documents
+        let allChunks = []; 
         for (let i = 0; i < playlist.length; i++) {
             showToast(`Processing ${i + 1}/${playlist.length}: ${playlist[i].name}...`, 'info');
-            
             try {
-                // Check if we already have the audio downloaded in DB to save API calls
                 const cachedDoc = await new Promise((resolve) => {
                     const tx = db.transaction('docs', 'readonly');
                     const req = tx.objectStore('docs').get(playlist[i].id);
@@ -608,28 +628,20 @@
                 });
 
                 let audioB64List = [];
-
                 if (cachedDoc && cachedDoc.audio && cachedDoc.audio.length > 0) {
-                    // Use Cached Audio
                     audioB64List = cachedDoc.audio;
                 } else {
-                    // Not cached, need to fetch text and synthesize
                     let text = playlist[i].text;
                     if (!text) {
                         const resp = await gapi.client.drive.files.export({fileId: playlist[i].id, mimeType: 'text/plain'});
                         text = resp.body;
                     }
-
                     if (!text || !text.trim()) continue;
-                    
-                    // Synthesize
                     const chunks = chunkText(text);
                     for (let j = 0; j < chunks.length; j++) {
                         const b64 = await synthesizeText(chunks[j], selectedVoiceId);
                         if(b64) audioB64List.push(b64);
                     }
-                    
-                    // Save to cache while we are at it
                     saveDoc(playlist[i].id, text, {
                         name: playlist[i].name, 
                         folder: playlist[i].folder, 
@@ -638,7 +650,6 @@
                     playlist[i].status = 'downloaded';
                 }
 
-                // Convert all Base64 chunks for this doc to Uint8Array and add to master list
                 for(let b64 of audioB64List) {
                     const byteCharacters = atob(b64);
                     const byteNumbers = new Array(byteCharacters.length);
@@ -647,24 +658,16 @@
                     }
                     allChunks.push(new Uint8Array(byteNumbers));
                 }
-                
-                // Small delay to keep UI responsive
                 await new Promise(r => setTimeout(r, 100));
-
             } catch (err) {
                 console.error("Error processing " + playlist[i].name, err);
-                // Continue to next file
             }
         }
         
         if (allChunks.length === 0) return showToast('No audio data generated', 'error');
 
         showToast('Merging audio...', 'info');
-        
-        // 2. Create Single Blob
         const finalBlob = new Blob(allChunks, { type: 'audio/mpeg' });
-        
-        // 3. Trigger Download
         showToast('Download starting!', 'success');
         renderPlaylist();
         triggerFileDownload(finalBlob, `Textify_Playlist_${new Date().toISOString().slice(0,10)}.mp3`);
@@ -678,8 +681,6 @@
         a.download = filename;
         document.body.appendChild(a);
         a.click();
-        
-        // Cleanup
         setTimeout(() => {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
@@ -694,12 +695,10 @@
             getAllDocs(function(cached) {
                 var cacheMap = {};
                 cached.forEach(function(c) { cacheMap[c.id] = c; });
-                
                 playlist.forEach(function(p) {
                     var c = cacheMap[p.id];
                     if (c) { 
                         p.text = c.text; 
-                        // Check if audio exists
                         if (c.audio && c.audio.length > 0) {
                             p.status = 'downloaded';
                         } else {
@@ -714,16 +713,13 @@
 
     function clearAllDocuments() {
         if (!confirm('Clear list and ignore all old files? (Only new files created from now on will appear)')) return;
-        
         stopAudio();
         playlist = [];
         localStorage.removeItem('playlist');
         lastSyncTime = new Date().toISOString();
         localStorage.setItem('lastSyncTime', lastSyncTime);
-        
         var tx = db.transaction('docs', 'readwrite');
         tx.objectStore('docs').clear();
-        
         renderPlaylist();
         showToast('Cleared. Only NEW files will appear now.', 'success');
         settingsModal.classList.remove('visible');
@@ -731,7 +727,6 @@
         syncText.textContent = 'Offline';
     }
 
-    // Render
     function renderPlaylist() {
         if (playlist.length === 0) {
             playlistEmpty.style.display = 'block';
@@ -748,11 +743,9 @@
             var p = playlist[i];
             var active = i === currentTrackIndex;
             var playing = active && isPlaying;
-            
             var statusLabel = p.status;
             if (p.status === 'pending') statusLabel = 'cloud'; 
             if (p.status === 'downloaded') statusLabel = 'offline';
-            
             var badgeClass = p.status;
             
             html += '<div class="track' + (active ? ' active' : '') + (playing ? ' playing' : '') + '" data-i="' + i + '">';
@@ -771,7 +764,7 @@
                 if (e.target.closest('.track-delete-btn')) return;
                 var idx = parseInt(this.getAttribute('data-i'));
                 if (playlist[idx].status === 'pending') {
-                    downloadSingleItem(idx, false);
+                    play(idx); 
                 } else {
                     play(idx);
                 }
@@ -784,7 +777,6 @@
                 deleteTrack(parseInt(this.getAttribute('data-i')));
             };
         }
-
         if (playlist.length > 0 && content.classList.contains('visible')) {
             player.classList.remove('hidden');
         } else {
@@ -807,24 +799,22 @@
         if (playlist.length === 0) player.classList.add('hidden');
     }
 
-    // --- GOOGLE CLOUD TTS LOGIC ---
+    // --- AUDIO FETCH AND PLAYBACK ---
 
     async function fetchVoices() {
         const url = `https://texttospeech.googleapis.com/v1/voices?key=${API_KEY}&languageCode=en-US`;
         try {
             const response = await fetch(url);
             const data = await response.json();
-            // Filter for Neural2 voices as requested
             let voices = [];
             if(data.voices){
                 voices = data.voices.filter(v => v.name.includes('Neural2'));
             }
-            // If empty (permission error or network), use backup
             if(voices.length === 0) voices = BACKUP_VOICES;
             renderVoiceList(voices);
         } catch (e) {
             console.error('Failed to fetch voices, using backup', e);
-            renderVoiceList(BACKUP_VOICES); // Fallback so menu isn't empty
+            renderVoiceList(BACKUP_VOICES);
         }
     }
 
@@ -922,85 +912,171 @@
         }
 
         var p = playlist[i];
-
-        // CHECK OFFLINE STORAGE FIRST
+        
         var tx = db.transaction('docs', 'readonly');
         var req = tx.objectStore('docs').get(p.id);
         
-        req.onsuccess = function() {
+        req.onsuccess = async function() {
             var doc = req.result;
+            
             if (doc && doc.audio && doc.audio.length > 0) {
-                // Play offline
-                playOffline(doc.audio, 0, i, p.name);
-            } else if (doc && doc.text) {
-                // Stream online (cached text)
-                playStream(doc.text, i, p.name);
-            } else {
-                // Needs fetching
-                downloadSingleItem(i, false);
+                 playMergedAudio(doc.audio, i, p.name, p.id);
+                 return;
             }
+
+            if (doc && doc.text) {
+                showToast('Downloading audio to device...', 'info');
+                await fetchAndSaveAudio(i, doc.text); 
+                return;
+            }
+
+            downloadSingleItem(i, true); 
         };
     }
 
-    function playOffline(audioChunks, chunkIdx, trackIdx, title) {
-        if (chunkIdx >= audioChunks.length) {
-            if (trackIdx < playlist.length - 1) play(trackIdx + 1);
-            else { isPlaying = false; updateUI(); }
-            return;
+    // MERGED BLOB PLAYBACK ENGINE
+    function playMergedAudio(audioChunks, trackIdx, title, docId) {
+        currentDocId = docId; // Set current ID for progress saving
+
+        // 1. Convert Base64 chunks to Uint8Arrays
+        const byteArrays = audioChunks.map(b64 => {
+            const byteCharacters = atob(b64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            return new Uint8Array(byteNumbers);
+        });
+
+        // 2. Create Single Blob
+        const blob = new Blob(byteArrays, { type: 'audio/mpeg' });
+        const blobUrl = URL.createObjectURL(blob);
+
+        // 3. Setup Audio
+        playerTitle.textContent = title;
+        playerPosition.textContent = (trackIdx + 1) + ' / ' + playlist.length;
+        
+        audio.src = blobUrl;
+        audio.playbackRate = playbackSpeed;
+
+        // MEDIA SESSION API (LOCK SCREEN CONTROLS)
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: title,
+                artist: 'Textify',
+                album: 'Textify Playlist'
+            });
+            navigator.mediaSession.setActionHandler('play', function() { audio.play(); });
+            navigator.mediaSession.setActionHandler('pause', function() { audio.pause(); });
+            navigator.mediaSession.setActionHandler('previoustrack', function() { prevTrack(); });
+            navigator.mediaSession.setActionHandler('nexttrack', function() { nextTrack(); });
+        }
+
+        // 4. CHECK FOR SAVED PROGRESS
+        const savedTime = localStorage.getItem('playback_pos_' + docId);
+        
+        // 5. Play
+        var playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(_ => {
+                isPlaying = true;
+                updateUI();
+                // If saved time exists, seek to it
+                if (savedTime && parseFloat(savedTime) > 0) {
+                    audio.currentTime = parseFloat(savedTime);
+                    showToast('Resumed at ' + formatTime(audio.currentTime), 'success');
+                }
+            }).catch(error => {
+                console.error("Playback prevented", error);
+            });
         }
         
-        if (chunkIdx === 0) {
-            playerTitle.textContent = title;
-            playerPosition.textContent = (trackIdx + 1) + ' / ' + playlist.length;
-            showToast('Playing from offline storage', 'success');
-        }
-
-        audio.src = "data:audio/mp3;base64," + audioChunks[chunkIdx];
-        audio.playbackRate = playbackSpeed;
-        audio.play();
-        isPlaying = true;
-        updateUI();
-
+        // 6. Handle End of Track
         audio.onended = function() {
-            playOffline(audioChunks, chunkIdx + 1, trackIdx, title);
+            URL.revokeObjectURL(blobUrl); 
+            // Reset progress for this track since it finished
+            localStorage.removeItem('playback_pos_' + docId);
+            
+            if (trackIdx < playlist.length - 1) {
+                play(trackIdx + 1);
+            } else {
+                isPlaying = false;
+                updateUI();
+            }
         };
     }
 
-    function playStream(text, i, title) {
-        // Legacy streaming logic (chunk on fly)
-        if (textChunks.length === 0) {
-            textChunks = chunkText(text);
-            currentChunkIdx = 0;
-            playerTitle.textContent = title;
-            playerPosition.textContent = (i + 1) + ' / ' + playlist.length;
+    // --- SCRUBBING AND TIME LOGIC ---
+
+    // Time Update Event
+    audio.ontimeupdate = function() {
+        if (isDragging) return; 
+        const currentTime = audio.currentTime;
+        const duration = audio.duration;
+
+        // Save progress every time update (effectively "auto-save")
+        if (currentDocId && currentTime > 0) {
+            localStorage.setItem('playback_pos_' + currentDocId, currentTime);
         }
-        playNextStreamChunk();
+
+        if (duration) {
+            const progress = (currentTime / duration) * 100;
+            progressFill.style.width = progress + '%';
+            
+            currentTimeEl.textContent = formatTime(currentTime);
+            const remaining = duration - currentTime;
+            totalTimeEl.textContent = '-' + formatTime(remaining);
+        }
+    };
+    
+    audio.onloadedmetadata = function() {
+         totalTimeEl.textContent = '-' + formatTime(audio.duration);
+    };
+
+    function formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return m + ":" + (s < 10 ? "0" : "") + s;
     }
 
-    async function playNextStreamChunk() {
-        if (currentChunkIdx >= textChunks.length) {
-            if (currentTrackIndex < playlist.length - 1) {
-                textChunks = []; 
-                play(currentTrackIndex + 1);
-            } else {
-                stopAudio();
-            }
-            return;
-        }
-        if (currentChunkIdx === 0) showToast('Streaming (Online)...', 'info');
-        const audioContent = await synthesizeText(textChunks[currentChunkIdx], selectedVoiceId);
-        if (audioContent) {
-            audio.src = "data:audio/mp3;base64," + audioContent;
-            audio.playbackRate = playbackSpeed;
-            audio.play();
-            isPlaying = true;
-            updateUI();
-            audio.onended = function() {
-                currentChunkIdx++;
-                playNextStreamChunk();
-            };
-        }
+    function seek(e) {
+        if (!audio.duration) return;
+        const rect = progressBar.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        let percent = (clientX - rect.left) / rect.width;
+        percent = Math.max(0, Math.min(1, percent));
+        
+        progressFill.style.width = (percent * 100) + '%';
+        audio.currentTime = percent * audio.duration;
     }
+
+    // Event Listeners for Scrubbing
+    progressBar.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        seek(e);
+    });
+    progressBar.addEventListener('touchstart', function(e) {
+        isDragging = true;
+        seek(e);
+    }, {passive: false});
+
+    document.addEventListener('mousemove', function(e) {
+        if (isDragging) seek(e);
+    });
+    document.addEventListener('touchmove', function(e) {
+        if (isDragging) {
+             e.preventDefault(); 
+             seek(e);
+        }
+    }, {passive: false});
+
+    document.addEventListener('mouseup', function() {
+        if(isDragging) isDragging = false;
+    });
+    document.addEventListener('touchend', function() {
+        if(isDragging) isDragging = false;
+    });
+
 
     audio.onerror = function() {
         showToast('Playback error', 'error');
@@ -1010,6 +1086,10 @@
 
     function stopAudio() {
         audio.pause();
+        // Save progress before stopping if active
+        if (currentDocId && audio.currentTime > 0) {
+            localStorage.setItem('playback_pos_' + currentDocId, audio.currentTime);
+        }
         audio.currentTime = 0;
         isPlaying = false;
         textChunks = [];
@@ -1077,7 +1157,6 @@
         
         clearAllBtn.onclick = clearAllDocuments;
         
-        // Connect the new Merge Button
         document.getElementById('download-merged-btn').onclick = downloadAllAsMergedMP3;
         
         reauthToast.onclick = signIn; 
