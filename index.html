@@ -965,12 +965,15 @@
 
         // MEDIA SESSION API (LOCK SCREEN CONTROLS)
         if ('mediaSession' in navigator) {
+            // FORCE ABSOLUTE URL FOR ARTWORK
+            const iconUrl = 'https://gerogehornet.github.io/textify/icon.jpg';
+            
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: title,
                 artist: 'Textify',
                 album: 'Textify Playlist',
                 artwork: [
-                    { src: 'icon.jpg', sizes: '512x512', type: 'image/jpeg' }
+                    { src: iconUrl, sizes: '512x512', type: 'image/jpeg' }
                 ]
             });
             navigator.mediaSession.setActionHandler('play', function() { audio.play(); });
